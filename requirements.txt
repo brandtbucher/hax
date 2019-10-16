@@ -2,3 +2,5 @@ black
 hypothesis
 mypy
 pytest
+pytest-forked
+pytest-xdist
