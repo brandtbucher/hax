@@ -1,12 +1,25 @@
 import dis
 import itertools
 import re
+import sys
 import typing
 
 import hypothesis
 import pytest
 
 import hax
+
+
+class Object:
+    pass
+
+
+hypothesis.strategies.register_type_strategy(
+    Object,
+    hypothesis.strategies.from_type(object)
+    if (3, 7) <= sys.version_info
+    else hypothesis.strategies.builds(object),
+)
 
 
 def get_examples() -> typing.Iterator[str]:
@@ -20,7 +33,7 @@ def get_examples() -> typing.Iterator[str]:
 
 @hypothesis.given(items=hypothesis.infer)
 @pytest.mark.parametrize("code", get_examples())
-def test_readme(code: str, items: typing.List[object]) -> None:
+def test_readme(code: str, items: typing.Sequence[Object]) -> None:
 
     namespace: typing.Dict[str, typing.Any] = {"__name__": "__main__"}
     exec(code, namespace)
