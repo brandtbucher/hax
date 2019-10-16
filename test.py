@@ -20,7 +20,7 @@ def get_examples() -> typing.Iterator[str]:
 
 @hypothesis.given(items=hypothesis.infer)
 @pytest.mark.parametrize("code", get_examples())
-def test_readme(code: str, items: typing.Sequence[object]) -> None:
+def test_readme(code: str, items: typing.List[object]) -> None:
 
     namespace: typing.Dict[str, typing.Any] = {"__name__": "__main__"}
     exec(code, namespace)
