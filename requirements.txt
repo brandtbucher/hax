@@ -1,6 +1,5 @@
+attrs>=19.2.0
 black
 hypothesis
 mypy
-pytest
-pytest-forked
-pytest-xdist
+pytest>=4.4.0
