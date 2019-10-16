@@ -1,0 +1,70 @@
+# https://github.com/brandtbucher/travis-python-matrix
+
+# CPython 3.7.4 / CPython 3.6.8
+# Ubuntu 16.04 (Xenial Xerus) / Windows 10 (64-bit) / macOS 10.14 (Mojave)
+
+matrix:
+
+  include:
+  
+    - name: CPython 3.7.4 on Ubuntu 16.04 (Xenial Xerus)
+      language: python
+      os: linux
+      dist: xenial
+      python: 3.7.4
+
+    - name: CPython 3.6.8 on Ubuntu 16.04 (Xenial Xerus)
+      language: python
+      os: linux
+      dist: xenial
+      python: 3.6.8
+
+    - name: CPython 3.7.4 on Windows 10 (64-bit)
+      language: shell
+      os: windows
+      before_install:
+        - export PATH=/c/Python37:/c/Python37/Scripts:$PATH
+        - choco install python --version 3.7.4
+
+    - name: CPython 3.6.8 on Windows 10 (64-bit)
+      language: shell
+      os: windows
+      before_install:
+        - export PATH=/c/Python36:/c/Python36/Scripts:$PATH
+        - choco install python --version 3.6.8
+
+    - name: CPython 3.7.4 on macOS 10.14 (Mojave)
+      language: shell
+      os: osx
+      osx_image: xcode10.2
+      before_install:
+        - export PATH=/Users/travis/.pyenv/shims:$PATH PYENV_VERSION=3.7.4
+        - travis_wait brew upgrade pyenv && pyenv install $PYENV_VERSION
+
+    - name: CPython 3.6.8 on macOS 10.14 (Mojave)
+      language: shell
+      os: osx
+      osx_image: xcode10.2
+      before_install:
+        - export PATH=/Users/travis/.pyenv/shims:$PATH PYENV_VERSION=3.6.8
+        - CFLAGS="-I$(xcrun --show-sdk-path)/usr/include" pyenv install $PYENV_VERSION
+    
+    - name: mypy
+      language: python
+      os: linux
+      dist: xenial
+      python: 3.8
+      script: mypy
+    
+    - name: Black
+      language: python
+      os: linux
+      dist: xenial
+      python: 3.8
+      script: black --check .
+
+# Python and pip exectuables are just named "python" and "pip" on all platforms!
+
+install: pip install -r requirements.txt
+
+script: pytest
