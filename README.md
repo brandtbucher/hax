@@ -31,11 +31,7 @@ Consider the following function; it accepts a sequence of items, and returns a
 list with each item repeated twice:
 
 ```py
-from typing import List, Sequence, TypeVar
-
-T = TypeVar("T")
-
-def double(items: Sequence[T]) -> List[T]:
+def doubled(items):
     out = []
     for item in items:
         out += item, item
@@ -52,7 +48,7 @@ simple to inline these instructions:
 from hax import *
 
 @hax 
-def double(items: Sequence[T]) -> List[T]:
+def doubled(items):
     
     BUILD_LIST(0)
 
@@ -71,8 +67,10 @@ further sped up by rewriting the for-loop in bytecode, removing _all_ temporary
 variables, and operating **entirely on the stack**:
 
 ```py
+from hax import *
+
 @hax 
-def double(items: Sequence[T]) -> List[T]:
+def doubled(items):
 
     BUILD_LIST(0)
 

@@ -18,7 +18,7 @@ def get_examples() -> typing.Iterator[str]:
     with open("README.md") as readme:
         examples = re.findall(r"\n```py(\n[^`]+\n)```\n", readme.read())
 
-    for i, example in enumerate(itertools.accumulate(examples)):
+    for i, example in enumerate(examples):
         yield pytest.param(example, id=f"{i}")
 
 
@@ -29,7 +29,7 @@ def test_readme(code: str, items: typing.Sequence[object]) -> None:
     namespace: typing.Dict[str, typing.Any] = {"__name__": "__main__"}
     exec(code, namespace)
 
-    actual = namespace["double"](items)
+    actual = namespace["doubled"](items)
     expected = [*itertools.chain.from_iterable(zip(items, items))]
 
     assert actual == expected
