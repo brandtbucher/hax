@@ -11,7 +11,9 @@ HAX
 
 <div align=justify>
 
-HAX lets you write compiled bytecode inline with standard Python syntax.
+HAX lets you write compiled bytecode inline with standard Python syntax. It was
+originally built for exploring new improvements to CPython's compiler and
+peephole optimizer.
 
 Installation
 ------------
