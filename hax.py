@@ -67,6 +67,42 @@ def _instructions_with_lines(
         yield instruction, line
 
 
+def _backfill(
+    arg: int,
+    start: int,
+    line: int,
+    following: dis.Instruction,
+    offset: int,
+    code: bytearray,
+    new_op: int,
+    filename: str,
+) -> None:
+
+    if arg > (1 << 32) - 1:
+        message = f"Args greater than {(1 << 32) - 1:,} aren't supported (got {arg:,})!"
+        _raise_hax_error(message, filename, line, following)
+
+    if arg < 0:
+        message = f"Args less than 0 aren't supported (got {arg:,})!"
+        _raise_hax_error(message, filename, line, following)
+
+    # TODO: Do NOPS and extended args at the same time!
+
+    for byte in range(start, offset, 2):
+        code[byte : byte + 2] = _NOP, 0
+
+    code[offset : offset + 2] = new_op, arg & 255
+    arg >>= 8
+
+    for lookback in range(2, 8, 2):
+        if not arg:
+            break
+        code[offset - lookback : offset - lookback + 2] = (_EXTENDED_ARG, arg & 255)
+        arg >>= 8
+
+    assert not arg, f"Leftover bytes in arg ({arg:,})!"
+
+
 def hax(function: _F) -> _F:
 
     ops = _instructions_with_lines(function.__code__)
@@ -75,6 +111,11 @@ def hax(function: _F) -> _F:
     names = list(function.__code__.co_names)
     stacksize = function.__code__.co_stacksize
     varnames = list(function.__code__.co_varnames)
+
+    labels: typing.Dict[typing.Hashable, int] = {}
+    deferred_labels: typing.Dict[
+        typing.Hashable, typing.List[typing.Dict[str, typing.Any]]
+    ] = {}
 
     start = 0
 
@@ -89,7 +130,7 @@ def hax(function: _F) -> _F:
 
             break
 
-        if op.argval not in dis.opmap:
+        if op.argval not in dis.opmap and op.argval != "LABEL":
             start = op.offset + 2
             continue
 
@@ -104,11 +145,8 @@ def hax(function: _F) -> _F:
             message = "Ops must consist of a simple call."
             _raise_hax_error(message, function.__code__.co_filename, line, op)
 
-        new_op = dis.opmap[op.argval]
-
-        has_arg = dis.HAVE_ARGUMENT <= new_op
-
         args = 0
+        arg = 0
 
         for following, _ in ops:
 
@@ -130,12 +168,6 @@ def hax(function: _F) -> _F:
             message = "Ops must consist of a simple call."
             _raise_hax_error(message, function.__code__.co_filename, line, op)
 
-        if args != has_arg:
-            message = (
-                f"Number of arguments is wrong (expected {int(has_arg)}, got {args})."
-            )
-            _raise_hax_error(message, function.__code__.co_filename, line, op)
-
         following, _ = next(ops)
 
         if following.opcode != _POP_TOP:
@@ -144,7 +176,37 @@ def hax(function: _F) -> _F:
 
         line = following.starts_line or line
 
+        if op.argval == "LABEL":
+            _backfill(
+                arg=0,
+                start=start,
+                line=line,
+                following=following,
+                offset=following.offset,
+                code=code,
+                new_op=_NOP,
+                filename=function.__code__.co_filename,
+            )
+            offset = following.offset
+            labels[arg] = offset
+            for info in deferred_labels.pop(arg, ()):
+                info["arg"] = offset - info["arg"]
+                _backfill(**info)
+            start = following.offset + 2
+            continue
+
+        new_op = dis.opmap[op.argval]
+
+        has_arg = dis.HAVE_ARGUMENT <= new_op
+
+        if args != has_arg:
+            message = (
+                f"Number of arguments is wrong (expected {int(has_arg)}, got {args})."
+            )
+            _raise_hax_error(message, function.__code__.co_filename, line, op)
+
         if new_op in dis.hasname:
+            assert isinstance(arg, str)
             try:
                 arg = names.index(arg)
             except ValueError:
@@ -161,6 +223,7 @@ def hax(function: _F) -> _F:
                     message, function.__code__.co_filename, line, following
                 )
         elif new_op in dis.haslocal:
+            assert isinstance(arg, str)
             try:
                 arg = varnames.index(arg)
             except ValueError:
@@ -176,38 +239,58 @@ def hax(function: _F) -> _F:
                 _raise_hax_error(
                     message, function.__code__.co_filename, line, following
                 )
+        elif new_op in dis.hasjabs:
+            if arg in labels:
+                arg = labels[arg]
+            else:
+                deferred_labels.setdefault(arg, []).append(
+                    dict(
+                        arg=0,
+                        start=start,
+                        line=line,
+                        following=following,
+                        offset=following.offset,
+                        code=code,
+                        new_op=new_op,
+                        filename=function.__code__.co_filename,
+                    )
+                )
+                start = following.offset + 2
+                continue
+        elif new_op in dis.hasjrel:
+            if arg in labels:
+                arg = abs(following.offset + 2 - labels[arg])  # TODO: abs needed here?
+            else:
+                deferred_labels.setdefault(arg, []).append(
+                    dict(
+                        arg=following.offset + 2,
+                        start=start,
+                        line=line,
+                        following=following,
+                        offset=following.offset,
+                        code=code,
+                        new_op=new_op,
+                        filename=function.__code__.co_filename,
+                    )
+                )
+                start = following.offset + 2
+                continue
         elif not isinstance(arg, int):
             message = f"Expected integer argument, got {arg!r}."
             _raise_hax_error(message, function.__code__.co_filename, line, following)
 
-        if arg > (1 << 32) - 1:
-            message = (
-                f"Args greater than {(1 << 32) - 1:,} aren't supported (got {arg:,})!"
-            )
-            _raise_hax_error(message, function.__code__.co_filename, line, following)
-
-        if arg < 0:
-            message = f"Args less than 0 aren't supported (got {arg:,})!"
-            _raise_hax_error(message, function.__code__.co_filename, line, following)
-
-        for offset in range(start, following.offset, 2):
-            code[offset : offset + 2] = _NOP, 0
+        _backfill(
+            arg=arg,
+            start=start,
+            line=line,
+            following=following,
+            offset=following.offset,
+            code=code,
+            new_op=new_op,
+            filename=function.__code__.co_filename,
+        )
 
         start = following.offset + 2
-
-        code[following.offset : following.offset + 2] = new_op, arg & 255
-        arg >>= 8
-
-        for lookback in range(2, 8, 2):
-            if not arg:
-                break
-            code[following.offset - lookback : following.offset - lookback + 2] = (
-                _EXTENDED_ARG,
-                arg & 255,
-            )
-            arg >>= 8
-
-        assert not arg, f"Leftover bytes in arg ({arg:,})!"
 
         # This is the worst-case stack size... but we can probably be more exact.
         stacksize = max(
@@ -217,6 +300,11 @@ def hax(function: _F) -> _F:
     else:
 
         assert False, "Main loop exited prematurely!"
+
+    if deferred_labels:
+        raise HaxUsageError(
+            f"The following labels don't exist: {', '.join(map(repr, deferred_labels))}"
+        )
 
     assert len(function.__code__.co_code) == len(code), "Code changed size!"
 
