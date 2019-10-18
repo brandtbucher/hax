@@ -122,12 +122,9 @@ def hax(function: _F) -> _F:
     for _ in range(len(code) // 2 + 1):
 
         for op, line in ops:
-
             if op.opcode != _EXTENDED_ARG:
                 break
-
         else:
-
             break
 
         if op.argval not in dis.opmap and op.argval != "LABEL":
