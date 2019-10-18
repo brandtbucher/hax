@@ -62,9 +62,9 @@ def doubled(items):
     RETURN_VALUE()
 ```
 
-If you're up to the challenge of computing jump targets, the function can be 
-further sped up by rewriting the for-loop in bytecode, removing _all_ temporary 
-variables, and operating **entirely on the stack**:
+With the help of labeled jump targets, the function can be further sped up by
+rewriting the for-loop in bytecode, removing _all_ temporary variables, and
+operating **entirely on the stack**:
 
 ```py
 from hax import *
@@ -76,13 +76,15 @@ def doubled(items):
 
     LOAD_FAST("items")
     GET_ITER()
-    FOR_ITER(34)  # When done, jump forward to RETURN_VALUE().
+    LABEL("loop")
+    FOR_ITER("return")
 
     DUP_TOP()
     LIST_APPEND(3)
     LIST_APPEND(2)
-    JUMP_ABSOLUTE(28)  # Jump back to FOR_ITER(34).
+    JUMP_ABSOLUTE("loop")
 
+    LABEL("return")
     RETURN_VALUE()
 ```
 
