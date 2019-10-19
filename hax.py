@@ -5,8 +5,8 @@ import types
 import typing
 
 
-if sys.version_info < (3, 6):
-    raise RuntimeError("HAX only supports Python 3.6+!")
+if sys.version_info < (3, 6, 2):
+    raise RuntimeError("HAX only supports Python 3.6.2+!")
 
 
 if sys.implementation.name != "cpython":
@@ -39,7 +39,7 @@ class HaxUsageError(RuntimeError):
 
 def _raise_hax_error(
     message: str, filename: str, line: int, op: dis.Instruction
-) -> None:
+) -> typing.NoReturn:
 
     if os.path.isfile(filename):
         with open(filename) as file:
