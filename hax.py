@@ -76,7 +76,7 @@ def _backfill(
     code: bytearray,
     new_op: int,
     filename: str,
-) -> None:
+) -> typing.Iterator[int]:
 
     if arg > (1 << 32) - 1:
         message = f"Args greater than {(1 << 32) - 1:,} aren't supported (got {arg:,})!"
@@ -86,19 +86,21 @@ def _backfill(
         message = f"Args less than 0 aren't supported (got {arg:,})!"
         _raise_hax_error(message, filename, line, following)
 
-    code[offset : offset + 2] = new_op, arg & 255
+    compiled = [arg & 255, new_op]
     arg >>= 8
 
     for lookback in range(2, 8, 2):
         if offset - lookback < start:
             break
         if not arg:
-            code[offset - lookback : offset - lookback + 2] = _NOP, 0
+            compiled += 0, _NOP
             continue
-        code[offset - lookback : offset - lookback + 2] = (_EXTENDED_ARG, arg & 255)
+        compiled += arg & 255, _EXTENDED_ARG
         arg >>= 8
 
     assert not arg, f"Leftover bytes in arg ({arg:,})!"
+
+    return reversed(compiled)
 
 
 def hax(function: _F) -> _F:
@@ -172,7 +174,7 @@ def hax(function: _F) -> _F:
         line = following.starts_line or line
 
         if op.argval == "LABEL":
-            _backfill(
+            code[start : following.offset + 2] = _backfill(
                 arg=0,
                 start=start,
                 line=line,
@@ -186,7 +188,7 @@ def hax(function: _F) -> _F:
             labels[arg] = offset
             for info in deferred_labels.pop(arg, ()):
                 info["arg"] = offset - info["arg"]
-                _backfill(**info)
+                code[info["start"] : info["offset"] + 2] = _backfill(**info)
             start = following.offset + 2
             continue
 
@@ -274,7 +276,7 @@ def hax(function: _F) -> _F:
             message = f"Expected integer argument, got {arg!r}."
             _raise_hax_error(message, function.__code__.co_filename, line, following)
 
-        _backfill(
+        code[start : following.offset + 2] = _backfill(
             arg=arg,
             start=start,
             line=line,
@@ -303,25 +305,35 @@ def hax(function: _F) -> _F:
 
     assert len(function.__code__.co_code) == len(code), "Code changed size!"
 
-    function.__code__ = types.CodeType(
-        function.__code__.co_argcount,
-        function.__code__.co_kwonlyargcount,
-        len(varnames),
-        stacksize,
-        function.__code__.co_flags,
-        bytes(code),
-        function.__code__.co_consts,
-        tuple(names),
-        tuple(varnames),
-        function.__code__.co_filename,
-        function.__code__.co_name,
-        function.__code__.co_firstlineno,
-        function.__code__.co_lnotab,
-        function.__code__.co_freevars,
-        function.__code__.co_cellvars,
+    new = types.FunctionType(
+        types.CodeType(
+            function.__code__.co_argcount,
+            function.__code__.co_kwonlyargcount,
+            len(varnames),
+            stacksize,
+            function.__code__.co_flags,
+            bytes(code),
+            function.__code__.co_consts,
+            tuple(names),
+            tuple(varnames),
+            function.__code__.co_filename,
+            function.__code__.co_name,
+            function.__code__.co_firstlineno,
+            function.__code__.co_lnotab,
+            function.__code__.co_freevars,
+            function.__code__.co_cellvars,
+        ),
+        function.__globals__,  # type: ignore
+        function.__name__,
+        function.__defaults__,  # type: ignore
+        function.__closure__,  # type: ignore
     )
 
-    return function
+    new.__annotations__ = function.__annotations__.copy()
+    new.__kwdefaults__ = (function.__kwdefaults__ or {}).copy() or None  # type: ignore
+    new.__dict__ = function.__dict__.copy()
+
+    return new  # type: ignore
 
 
 def LABEL(arg: typing.Hashable) -> None:
