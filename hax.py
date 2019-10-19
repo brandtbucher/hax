@@ -130,7 +130,7 @@ def hax(function: _F) -> _F:
 
     start = 0
 
-    for _ in range(len(code) // 2 + 1):
+    for _ in range((len(code) >> 1) + 1):
 
         for op, line in ops:
             if op.opcode != _EXTENDED_ARG:
@@ -143,9 +143,9 @@ def hax(function: _F) -> _F:
             continue
 
         if op.opname not in {
-            "LOAD_CLASSDEREF",
-            "LOAD_CLOSURE",
-            "LOAD_DEREF",
+            # "LOAD_CLASSDEREF",
+            # "LOAD_CLOSURE",
+            # "LOAD_DEREF",
             "LOAD_FAST",
             "LOAD_GLOBAL",
             "LOAD_NAME",
