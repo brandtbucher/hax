@@ -86,17 +86,15 @@ def _backfill(
         message = f"Args less than 0 aren't supported (got {arg:,})!"
         _raise_hax_error(message, filename, line, following)
 
-    # TODO: Do NOPS and extended args at the same time!
-
-    for byte in range(start, offset, 2):
-        code[byte : byte + 2] = _NOP, 0
-
     code[offset : offset + 2] = new_op, arg & 255
     arg >>= 8
 
     for lookback in range(2, 8, 2):
-        if not arg:
+        if offset - lookback < start:
             break
+        if not arg:
+            code[offset - lookback : offset - lookback + 2] = _NOP, 0
+            continue
         code[offset - lookback : offset - lookback + 2] = (_EXTENDED_ARG, arg & 255)
         arg >>= 8
 
