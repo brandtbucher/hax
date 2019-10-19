@@ -18,7 +18,7 @@ peephole optimizer.
 Installation
 ------------
 
-HAX supports CPython 3.6.2+ on macOS, Linux, and Windows.
+HAX supports CPython 3.6.2+ on all platforms.
 
 To install, just run:
 
