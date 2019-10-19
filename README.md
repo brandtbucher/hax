@@ -40,7 +40,7 @@ def doubled(items):
     return out            
 ```
 
-For example, `(0, 1, 2)` becomes `[0, 0, 1, 1, 2, 2]`.
+For example, `doubled((0, 1, 2))` returns `[0, 0, 1, 1, 2, 2]`.
 
 We can make this function faster by keeping `out` on the stack (instead of in a 
 local variable) and using the `LIST_APPEND` op to build it. HAX makes it 
