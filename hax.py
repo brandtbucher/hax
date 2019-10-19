@@ -73,7 +73,6 @@ def _backfill(
     line: int,
     following: dis.Instruction,
     offset: int,
-    code: bytearray,
     new_op: int,
     filename: str,
 ) -> typing.Iterator[int]:
@@ -180,7 +179,6 @@ def hax(function: _F) -> _F:
                 line=line,
                 following=following,
                 offset=following.offset,
-                code=code,
                 new_op=_NOP,
                 filename=function.__code__.co_filename,
             )
@@ -247,7 +245,6 @@ def hax(function: _F) -> _F:
                         line=line,
                         following=following,
                         offset=following.offset,
-                        code=code,
                         new_op=new_op,
                         filename=function.__code__.co_filename,
                     )
@@ -265,7 +262,6 @@ def hax(function: _F) -> _F:
                         line=line,
                         following=following,
                         offset=following.offset,
-                        code=code,
                         new_op=new_op,
                         filename=function.__code__.co_filename,
                     )
@@ -282,7 +278,6 @@ def hax(function: _F) -> _F:
             line=line,
             following=following,
             offset=following.offset,
-            code=code,
             new_op=new_op,
             filename=function.__code__.co_filename,
         )
