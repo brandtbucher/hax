@@ -326,6 +326,10 @@ def hax(function: _F) -> _F:
     return function
 
 
+def LABEL(arg: typing.Hashable) -> None:
+    raise HaxUsageError(_USAGE_MESSAGE)
+
+
 def BEFORE_ASYNC_WITH() -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
@@ -452,7 +456,7 @@ def BUILD_TUPLE_UNPACK_WITH_CALL(arg: int) -> None:
 
 if (3, 8) <= sys.version_info:
 
-    def CALL_FINALLY(arg: int) -> None:
+    def CALL_FINALLY(arg: typing.Hashable) -> None:
         raise HaxUsageError(_USAGE_MESSAGE)
 
 
@@ -480,7 +484,7 @@ def COMPARE_OP(arg: str) -> None:
 
 if sys.version_info < (3, 8):
 
-    def CONTINUE_LOOP(arg: int) -> None:
+    def CONTINUE_LOOP(arg: typing.Hashable) -> None:
         raise HaxUsageError(_USAGE_MESSAGE)
 
 
@@ -534,7 +538,7 @@ def FORMAT_VALUE(arg: int) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-def FOR_ITER(arg: int) -> None:
+def FOR_ITER(arg: typing.Hashable) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
@@ -622,19 +626,19 @@ def INPLACE_XOR() -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-def JUMP_ABSOLUTE(arg: int) -> None:
+def JUMP_ABSOLUTE(arg: typing.Hashable) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-def JUMP_FORWARD(arg: int) -> None:
+def JUMP_FORWARD(arg: typing.Hashable) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-def JUMP_IF_FALSE_OR_POP(arg: int) -> None:
+def JUMP_IF_FALSE_OR_POP(arg: typing.Hashable) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-def JUMP_IF_TRUE_OR_POP(arg: int) -> None:
+def JUMP_IF_TRUE_OR_POP(arg: typing.Hashable) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
@@ -716,11 +720,11 @@ if (3, 8) <= sys.version_info:
         raise HaxUsageError(_USAGE_MESSAGE)
 
 
-def POP_JUMP_IF_FALSE(arg: int) -> None:
+def POP_JUMP_IF_FALSE(arg: typing.Hashable) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-def POP_JUMP_IF_TRUE(arg: int) -> None:
+def POP_JUMP_IF_TRUE(arg: typing.Hashable) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
@@ -758,27 +762,27 @@ def SETUP_ANNOTATIONS() -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-def SETUP_ASYNC_WITH(arg: int) -> None:
+def SETUP_ASYNC_WITH(arg: typing.Hashable) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
 if sys.version_info < (3, 8):
 
-    def SETUP_EXCEPT(arg: int) -> None:
+    def SETUP_EXCEPT(arg: typing.Hashable) -> None:
         raise HaxUsageError(_USAGE_MESSAGE)
 
 
-def SETUP_FINALLY(arg: int) -> None:
+def SETUP_FINALLY(arg: typing.Hashable) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
 if sys.version_info < (3, 8):
 
-    def SETUP_LOOP(arg: int) -> None:
+    def SETUP_LOOP(arg: typing.Hashable) -> None:
         raise HaxUsageError(_USAGE_MESSAGE)
 
 
-def SETUP_WITH(arg: int) -> None:
+def SETUP_WITH(arg: typing.Hashable) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
