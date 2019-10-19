@@ -256,7 +256,7 @@ def hax(function: _F) -> _F:
                 continue
         elif new_op in dis.hasjrel:
             if arg in labels:
-                arg = abs(following.offset + 2 - labels[arg])  # TODO: abs needed here?
+                arg = following.offset + 2 - labels[arg]
             else:
                 deferred_labels.setdefault(arg, []).append(
                     dict(
