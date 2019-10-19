@@ -77,7 +77,11 @@ def _backfill(
     filename: str,
 ) -> typing.Iterator[int]:
 
-    if arg > (1 << 32) - 1:
+    size = ((offset - start) >> 1) + 1
+
+    assert 1 <= size < 5
+
+    if (1 << 32) - 1 < arg:
         message = f"Args greater than {(1 << 32) - 1:,} aren't supported (got {arg:,})!"
         _raise_hax_error(message, filename, line, following)
 
@@ -85,21 +89,29 @@ def _backfill(
         message = f"Args less than 0 aren't supported (got {arg:,})!"
         _raise_hax_error(message, filename, line, following)
 
-    compiled = [arg & 255, new_op]
-    arg >>= 8
+    if 1 << 24 <= arg:
+        yield _EXTENDED_ARG
+        yield arg >> 24 & 255
+    elif 4 <= size:
+        yield _NOP
+        yield 0
 
-    for lookback in range(2, 8, 2):
-        if offset - lookback < start:
-            break
-        if not arg:
-            compiled += 0, _NOP
-            continue
-        compiled += arg & 255, _EXTENDED_ARG
-        arg >>= 8
+    if 1 << 16 <= arg:
+        yield _EXTENDED_ARG
+        yield arg >> 16 & 255
+    elif 3 <= size:
+        yield _NOP
+        yield 0
 
-    assert not arg, f"Leftover bytes in arg ({arg:,})!"
+    if 1 << 8 <= arg:
+        yield _EXTENDED_ARG
+        yield arg >> 8 & 255
+    elif 2 <= size:
+        yield _NOP
+        yield 0
 
-    return reversed(compiled)
+    yield new_op
+    yield arg & 255
 
 
 def hax(function: _F) -> _F:
