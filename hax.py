@@ -118,10 +118,12 @@ def hax(function: _F) -> _F:
 
     ops = _instructions_with_lines(function.__code__)
 
-    code = bytearray(function.__code__.co_code)
+    code: typing.List[int] = []
     consts: typing.List[object] = [function.__code__.co_consts[0]]
     names: typing.Dict[str, int] = {}
     stacksize = function.__code__.co_stacksize
+    jumps: typing.Dict[int, typing.List[typing.Dict[str, typing.Any]]] = {}
+    deferred: typing.Dict[int, int] = {}
     varnames: typing.Dict[str, int] = {
         name: index
         for index, name in enumerate(
@@ -138,17 +140,29 @@ def hax(function: _F) -> _F:
         typing.Hashable, typing.List[typing.Dict[str, typing.Any]]
     ] = {}
 
-    start = 0
+    for _ in range((len(function.__code__.co_code) >> 1) + 1):
 
-    for _ in range((len(code) >> 1) + 1):
+        extended: typing.List[int] = []
 
         for op, line in ops:
+
+            if op.is_jump_target:
+                deferred[op.offset] = len(code)
+                offset = len(code)
+                for info in jumps.get(op.offset, ()):
+                    info["arg"] = offset - info["arg"]
+                    code[info["start"] : info["offset"] + 2] = _backfill(**info)
+                    assert len(code) == offset, "Code changed size!"
+
+            if op.opcode < dis.HAVE_ARGUMENT:
+                code += op.opcode, op.arg or 0
+                continue
 
             if op.opcode != _EXTENDED_ARG:
                 break
 
-            if op.opcode < dis.HAVE_ARGUMENT:
-                continue
+            assert isinstance(op.arg, int)
+            extended += _EXTENDED_ARG, op.arg
 
         else:
             break
@@ -158,20 +172,53 @@ def hax(function: _F) -> _F:
             if op.opcode in dis.haslocal:
                 # assert isinstance(arg, str)
                 arg = varnames.setdefault(op.argval, len(varnames))
-                code[op.offset + 1] = arg
             elif op.opcode in dis.hasname:
                 # assert isinstance(arg, str)
                 arg = names.setdefault(op.argval, len(names))
-                code[op.offset + 1] = arg
             elif op.opcode in dis.hasconst:
                 try:
                     arg = consts.index(op.argval)
                 except ValueError:
                     consts.append(op.argval)
                     arg = len(consts) - 1
-                code[op.offset + 1] = arg
+            elif op.opcode in dis.hasjabs:
+                assert isinstance(op.arg, int)
+                assert isinstance(op.argval, int)
+                if op.argval <= op.offset:
+                    arg = deferred[op.argval]
+                else:
+                    jumps.setdefault(op.argval, []).append(
+                        dict(
+                            arg=0,
+                            start=len(code),
+                            line=line,
+                            following=op,
+                            offset=len(code) + len(extended),
+                            new_op=op.opcode,
+                            filename=function.__code__.co_filename,
+                        )
+                    )
+                    arg = op.arg
+            elif op.opcode in dis.hasjrel:
+                assert isinstance(op.arg, int)
+                assert isinstance(op.argval, int)
+                jumps.setdefault(op.argval, []).append(
+                    dict(
+                        arg=len(code) + len(extended) + 2,
+                        start=len(code),
+                        line=line,
+                        following=op,
+                        offset=len(code) + len(extended),
+                        new_op=op.opcode,
+                        filename=function.__code__.co_filename,
+                    )
+                )
+                arg = op.arg
+            else:
+                arg = op.arg or 0
 
-            start = op.offset + 2
+            code += extended
+            code += op.opcode, arg
             continue
 
         if op.opname not in {
@@ -218,21 +265,13 @@ def hax(function: _F) -> _F:
         line = following.starts_line or line
 
         if op.argval == "LABEL":
-            code[start : following.offset + 2] = _backfill(
-                arg=0,
-                start=start,
-                line=line,
-                following=following,
-                offset=following.offset,
-                new_op=_NOP,
-                filename=function.__code__.co_filename,
-            )
-            offset = following.offset
+            assert arg not in labels, "Label already exists!"
+            offset = len(code)
             labels[arg] = offset
             for info in deferred_labels.pop(arg, ()):
                 info["arg"] = offset - info["arg"]
                 code[info["start"] : info["offset"] + 2] = _backfill(**info)
-            start = following.offset + 2
+                assert len(code) == offset, "Code changed size!"
             continue
 
         new_op = dis.opmap[op.argval]
@@ -304,18 +343,19 @@ def hax(function: _F) -> _F:
             if arg in labels:
                 arg = labels[arg]
             else:
+                # TODO: Only emit the bare minimum number of NOPs here!
                 deferred_labels.setdefault(arg, []).append(
                     dict(
                         arg=0,
-                        start=start,
+                        start=len(code),
                         line=line,
                         following=following,
-                        offset=following.offset,
+                        offset=len(code) + 6,  # XXX
                         new_op=new_op,
                         filename=function.__code__.co_filename,
                     )
                 )
-                start = following.offset + 2
+                code += _NOP, 0, _NOP, 0, _NOP, 0, _NOP, 0  # XXX
                 continue
         elif new_op in dis.hasjrel:
             try:
@@ -325,37 +365,34 @@ def hax(function: _F) -> _F:
                 _raise_hax_error(
                     message, function.__code__.co_filename, line, following
                 )
-            if arg in labels:
-                arg = following.offset + 2 - labels[arg]
-            else:
-                deferred_labels.setdefault(arg, []).append(
-                    dict(
-                        arg=following.offset + 2,
-                        start=start,
-                        line=line,
-                        following=following,
-                        offset=following.offset,
-                        new_op=new_op,
-                        filename=function.__code__.co_filename,
-                    )
+            assert arg not in labels, "Backwards jump!"
+            # TODO: Only emit the bare minimum number of NOPs here!
+            deferred_labels.setdefault(arg, []).append(
+                dict(
+                    arg=len(code) + 8,  # XXX
+                    start=len(code),
+                    line=line,
+                    following=following,
+                    offset=len(code) + 6,  # XXX
+                    new_op=new_op,
+                    filename=function.__code__.co_filename,
                 )
-                start = following.offset + 2
-                continue
+            )
+            code += _NOP, 0, _NOP, 0, _NOP, 0, _NOP, 0  # XXX
+            continue
         elif not isinstance(arg, int):
             message = f"Expected integer argument, got {arg!r}."
             _raise_hax_error(message, function.__code__.co_filename, line, following)
 
-        code[start : following.offset + 2] = _backfill(
+        code += _backfill(
             arg=arg,
-            start=start,
+            start=0,
             line=line,
             following=following,
-            offset=following.offset,
+            offset=0,
             new_op=new_op,
             filename=function.__code__.co_filename,
         )
-
-        start = following.offset + 2
 
         # This is the worst-case stack size... but we can probably be more exact.
         stacksize = max(
@@ -370,8 +407,6 @@ def hax(function: _F) -> _F:
         raise HaxUsageError(
             f"The following labels don't exist: {', '.join(map(repr, deferred_labels))}"
         )
-
-    assert len(function.__code__.co_code) == len(code), "Code changed size!"
 
     new = types.FunctionType(
         types.CodeType(  # type: ignore
