@@ -1,6 +1,6 @@
 # https://github.com/brandtbucher/travis-python-matrix
 
-# CPython 3.7.4 / CPython 3.6.2
+# CPython 3.8.0 / CPython 3.7.4 / CPython 3.6.2
 # Ubuntu 16.04 (Xenial Xerus) / Windows 10 (64-bit) / macOS 10.14 (Mojave)
 
 matrix:

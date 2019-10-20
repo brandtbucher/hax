@@ -313,8 +313,13 @@ def hax(function: _F) -> _F:
     assert len(function.__code__.co_code) == len(code), "Code changed size!"
 
     new = types.FunctionType(
-        types.CodeType(
+        types.CodeType(  # type: ignore
             function.__code__.co_argcount,
+            *(
+                (function.__code__.co_posonlyargcount,)  # type: ignore
+                if hasattr(function.__code__, "co_posonlyargcount")
+                else ()
+            ),
             function.__code__.co_kwonlyargcount,
             len(varnames),
             stacksize,
