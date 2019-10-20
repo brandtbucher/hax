@@ -19,6 +19,7 @@ matrix:
       dist: xenial
       python: 3.7.4
 
+    # 3.6.2 is our minimum requirement:
     - name: CPython 3.6.2 on Ubuntu 16.04 (Xenial Xerus)
       language: python
       os: linux
@@ -39,6 +40,7 @@ matrix:
         - export PATH=/c/Python37:/c/Python37/Scripts:$PATH
         - choco install python --version 3.7.4
 
+    # 3.6.2 is our minimum requirement:
     - name: CPython 3.6.2 on Windows 10 (64-bit)
       language: shell
       os: windows
@@ -62,6 +64,7 @@ matrix:
         - export PATH=/Users/travis/.pyenv/shims:$PATH PYENV_VERSION=3.7.4
         - travis_wait brew upgrade pyenv && pyenv install $PYENV_VERSION
 
+    # 3.6.2 is our minimum requirement:
     - name: CPython 3.6.2 on macOS 10.14 (Mojave)
       language: shell
       os: osx
@@ -70,7 +73,7 @@ matrix:
         - export PATH=/Users/travis/.pyenv/shims:$PATH PYENV_VERSION=3.6.2
         - CFLAGS="-I$(xcrun --show-sdk-path)/usr/include" pyenv install $PYENV_VERSION
     
-    - name: CPython 3.9
+    - name: CPython (master)
       language: python
       os: linux
       dist: xenial
