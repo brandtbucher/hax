@@ -119,9 +119,19 @@ def hax(function: _F) -> _F:
     ops = _instructions_with_lines(function.__code__)
 
     code = bytearray(function.__code__.co_code)
-    names = list(function.__code__.co_names)
+    consts: typing.List[object] = [function.__code__.co_consts[0]]
+    names: typing.Dict[str, int] = {}
     stacksize = function.__code__.co_stacksize
-    varnames = list(function.__code__.co_varnames)
+    varnames: typing.Dict[str, int] = {
+        name: index
+        for index, name in enumerate(
+            function.__code__.co_varnames[
+                : function.__code__.co_argcount
+                + function.__code__.co_kwonlyargcount
+                + getattr(function.__code__, "co_posonlyargcount", 0)
+            ]
+        )
+    }
 
     labels: typing.Dict[typing.Hashable, int] = {}
     deferred_labels: typing.Dict[
@@ -133,12 +143,34 @@ def hax(function: _F) -> _F:
     for _ in range((len(code) >> 1) + 1):
 
         for op, line in ops:
+
             if op.opcode != _EXTENDED_ARG:
                 break
+
+            if op.opcode < dis.HAVE_ARGUMENT:
+                continue
+
         else:
             break
 
         if op.argval not in dis.opmap and op.argval != "LABEL":
+
+            if op.opcode in dis.haslocal:
+                # assert isinstance(arg, str)
+                arg = varnames.setdefault(op.argval, len(varnames))
+                code[op.offset + 1] = arg
+            elif op.opcode in dis.hasname:
+                # assert isinstance(arg, str)
+                arg = names.setdefault(op.argval, len(names))
+                code[op.offset + 1] = arg
+            elif op.opcode in dis.hasconst:
+                try:
+                    arg = consts.index(op.argval)
+                except ValueError:
+                    consts.append(op.argval)
+                    arg = len(consts) - 1
+                code[op.offset + 1] = arg
+
             start = op.offset + 2
             continue
 
@@ -212,15 +244,18 @@ def hax(function: _F) -> _F:
             )
             _raise_hax_error(message, function.__code__.co_filename, line, op)
 
-        if new_op in dis.hasname:
+        if new_op in dis.haslocal:
             assert isinstance(arg, str)
-            try:
-                arg = names.index(arg)
-            except ValueError:
-                names.append(arg)
-                arg = len(names) - 1
+            arg = varnames.setdefault(arg, len(varnames))
+        elif new_op in dis.hasname:
+            assert isinstance(arg, str)
+            arg = names.setdefault(arg, len(names))
         elif new_op in dis.hasconst:
-            arg = function.__code__.co_consts.index(arg)
+            try:
+                arg = consts.index(arg)
+            except ValueError:
+                consts.append(arg)
+                arg = len(consts) - 1
         elif new_op in dis.hascompare:
             try:
                 arg = dis.cmp_op.index(arg)
@@ -229,13 +264,6 @@ def hax(function: _F) -> _F:
                 _raise_hax_error(
                     message, function.__code__.co_filename, line, following
                 )
-        elif new_op in dis.haslocal:
-            assert isinstance(arg, str)
-            try:
-                arg = varnames.index(arg)
-            except ValueError:
-                varnames.append(arg)
-                arg = len(varnames) - 1
         elif new_op in dis.hasfree:
             try:
                 arg = (
@@ -325,7 +353,7 @@ def hax(function: _F) -> _F:
             stacksize,
             function.__code__.co_flags,
             bytes(code),
-            function.__code__.co_consts,
+            tuple(consts),
             tuple(names),
             tuple(varnames),
             function.__code__.co_filename,
