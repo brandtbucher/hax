@@ -194,6 +194,7 @@ def hax(function: _F) -> _F:
                 continue
 
             if following.opcode == _LOAD_CONST:
+                # TODO: Validate type of arg.
                 arg = following.argval
                 args += 1
                 continue
@@ -245,10 +246,18 @@ def hax(function: _F) -> _F:
             _raise_hax_error(message, function.__code__.co_filename, line, op)
 
         if new_op in dis.haslocal:
-            assert isinstance(arg, str)
+            if not isinstance(arg, str):
+                message = f"Expected a string (got {arg!r})."
+                _raise_hax_error(
+                    message, function.__code__.co_filename, line, following
+                )
             arg = varnames.setdefault(arg, len(varnames))
         elif new_op in dis.hasname:
-            assert isinstance(arg, str)
+            if not isinstance(arg, str):
+                message = f"Expected a string (got {arg!r})."
+                _raise_hax_error(
+                    message, function.__code__.co_filename, line, following
+                )
             arg = names.setdefault(arg, len(names))
         elif new_op in dis.hasconst:
             try:
@@ -257,6 +266,11 @@ def hax(function: _F) -> _F:
                 consts.append(arg)
                 arg = len(consts) - 1
         elif new_op in dis.hascompare:
+            if not isinstance(arg, str):
+                message = f"Expected a string (got {arg!r})."
+                _raise_hax_error(
+                    message, function.__code__.co_filename, line, following
+                )
             try:
                 arg = dis.cmp_op.index(arg)
             except ValueError:
@@ -265,6 +279,11 @@ def hax(function: _F) -> _F:
                     message, function.__code__.co_filename, line, following
                 )
         elif new_op in dis.hasfree:
+            if not isinstance(arg, str):
+                message = f"Expected a string (got {arg!r})."
+                _raise_hax_error(
+                    message, function.__code__.co_filename, line, following
+                )
             try:
                 arg = (
                     function.__code__.co_cellvars + function.__code__.co_freevars
@@ -275,6 +294,13 @@ def hax(function: _F) -> _F:
                     message, function.__code__.co_filename, line, following
                 )
         elif new_op in dis.hasjabs:
+            try:
+                hash(arg)
+            except TypeError:
+                message = f"Expected a hashable label (got {arg!r})."
+                _raise_hax_error(
+                    message, function.__code__.co_filename, line, following
+                )
             if arg in labels:
                 arg = labels[arg]
             else:
@@ -292,6 +318,13 @@ def hax(function: _F) -> _F:
                 start = following.offset + 2
                 continue
         elif new_op in dis.hasjrel:
+            try:
+                hash(arg)
+            except TypeError:
+                message = f"Expected a hashable label (got {arg!r})."
+                _raise_hax_error(
+                    message, function.__code__.co_filename, line, following
+                )
             if arg in labels:
                 arg = following.offset + 2 - labels[arg]
             else:
