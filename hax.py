@@ -5,15 +5,15 @@ import types
 import typing
 
 
+__version__ = "0.1.0"
+
+
 if sys.version_info < (3, 6, 2):
     raise RuntimeError("HAX only supports Python 3.6.2+!")
 
 
 if sys.implementation.name != "cpython":
     raise RuntimeError("HAX only supports CPython!")
-
-
-__version__ = "0.0.0"
 
 
 _F = typing.TypeVar("_F", bound=typing.Callable[..., typing.Any])
