@@ -70,6 +70,12 @@ matrix:
         - export PATH=/Users/travis/.pyenv/shims:$PATH PYENV_VERSION=3.6.2
         - CFLAGS="-I$(xcrun --show-sdk-path)/usr/include" pyenv install $PYENV_VERSION
     
+    - name: CPython 3.9
+      language: python
+      os: linux
+      dist: xenial
+      python: nightly
+    
     - name: mypy
       language: python
       os: linux
