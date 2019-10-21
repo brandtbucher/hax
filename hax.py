@@ -215,10 +215,17 @@ def hax(function: _F) -> _F:
                 )
                 arg = op.arg
             else:
-                arg = op.arg or 0
+                arg = op.argval or 0
 
-            code += extended
-            code += op.opcode, arg
+            code += _backfill(
+                arg,
+                len(code),
+                line,
+                op,
+                len(code) + len(extended),
+                op.opcode,
+                function.__code__.co_filename,
+            )
             continue
 
         if op.opname not in {
