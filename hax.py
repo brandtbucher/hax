@@ -343,19 +343,26 @@ def hax(function: _F) -> _F:
             if arg in labels:
                 arg = labels[arg]
             else:
-                # TODO: Only emit the bare minimum number of NOPs here!
-                deferred_labels.setdefault(arg, []).append(
-                    dict(
-                        arg=0,
-                        start=len(code),
-                        line=line,
-                        following=following,
-                        offset=len(code) + 6,  # XXX
-                        new_op=new_op,
-                        filename=function.__code__.co_filename,
-                    )
+                max_jump = len(function.__code__.co_code) - 1
+                if 1 << 24 <= max_jump:
+                    padding = 6
+                elif 1 << 16 <= max_jump:
+                    padding = 4
+                elif 1 << 8 <= max_jump:
+                    padding = 2
+                else:
+                    padding = 0
+                info = dict(
+                    arg=0,
+                    start=len(code),
+                    line=line,
+                    following=following,
+                    offset=len(code) + padding,
+                    new_op=new_op,
+                    filename=function.__code__.co_filename,
                 )
-                code += _NOP, 0, _NOP, 0, _NOP, 0, _NOP, 0  # XXX
+                deferred_labels.setdefault(arg, []).append(info)
+                code += _backfill(**info)
                 continue
         elif new_op in dis.hasjrel:
             try:
@@ -367,18 +374,26 @@ def hax(function: _F) -> _F:
                 )
             assert arg not in labels, "Backwards jump!"
             # TODO: Only emit the bare minimum number of NOPs here!
-            deferred_labels.setdefault(arg, []).append(
-                dict(
-                    arg=len(code) + 8,  # XXX
-                    start=len(code),
-                    line=line,
-                    following=following,
-                    offset=len(code) + 6,  # XXX
-                    new_op=new_op,
-                    filename=function.__code__.co_filename,
-                )
+            max_jump = len(function.__code__.co_code) - len(code) - 2 - 1
+            if 1 << 24 <= max_jump:
+                padding = 6
+            elif 1 << 16 <= max_jump:
+                padding = 4
+            elif 1 << 8 <= max_jump:
+                padding = 2
+            else:
+                padding = 0
+            info = dict(
+                arg=len(code) + padding + 2,
+                start=len(code),
+                line=line,
+                following=following,
+                offset=len(code) + padding,
+                new_op=new_op,
+                filename=function.__code__.co_filename,
             )
-            code += _NOP, 0, _NOP, 0, _NOP, 0, _NOP, 0  # XXX
+            deferred_labels.setdefault(arg, []).append(info)
+            code += _backfill(**info)
             continue
         elif not isinstance(arg, int):
             message = f"Expected integer argument, got {arg!r}."
