@@ -169,63 +169,37 @@ def hax(function: _F) -> _F:
 
         if op.argval not in dis.opmap and op.argval != "LABEL":
 
+            info = dict(
+                arg=op.argval or 0,
+                start=len(code),
+                line=line,
+                following=op,
+                offset=len(code) + len(extended),
+                new_op=op.opcode,
+                filename=function.__code__.co_filename,
+            )
+
             if op.opcode in dis.haslocal:
-                # assert isinstance(arg, str)
-                arg = varnames.setdefault(op.argval, len(varnames))
+                info["arg"] = varnames.setdefault(op.argval, len(varnames))
             elif op.opcode in dis.hasname:
-                # assert isinstance(arg, str)
-                arg = names.setdefault(op.argval, len(names))
+                info["arg"] = names.setdefault(op.argval, len(names))
             elif op.opcode in dis.hasconst:
                 try:
-                    arg = consts.index(op.argval)
+                    info["arg"] = consts.index(op.argval)
                 except ValueError:
                     consts.append(op.argval)
-                    arg = len(consts) - 1
+                    info["arg"] = len(consts) - 1
             elif op.opcode in dis.hasjabs:
-                assert isinstance(op.arg, int)
-                assert isinstance(op.argval, int)
                 if op.argval <= op.offset:
-                    arg = deferred[op.argval]
+                    info["arg"] = deferred[op.argval]
                 else:
-                    jumps.setdefault(op.argval, []).append(
-                        dict(
-                            arg=0,
-                            start=len(code),
-                            line=line,
-                            following=op,
-                            offset=len(code) + len(extended),
-                            new_op=op.opcode,
-                            filename=function.__code__.co_filename,
-                        )
-                    )
-                    arg = op.arg
+                    info["arg"] = 0
+                    jumps.setdefault(op.argval, []).append(info)
             elif op.opcode in dis.hasjrel:
-                assert isinstance(op.arg, int)
-                assert isinstance(op.argval, int)
-                jumps.setdefault(op.argval, []).append(
-                    dict(
-                        arg=len(code) + len(extended) + 2,
-                        start=len(code),
-                        line=line,
-                        following=op,
-                        offset=len(code) + len(extended),
-                        new_op=op.opcode,
-                        filename=function.__code__.co_filename,
-                    )
-                )
-                arg = op.arg
-            else:
-                arg = op.argval or 0
+                info["arg"] = len(code) + len(extended) + 2
+                jumps.setdefault(op.argval, []).append(info)
 
-            code += _backfill(
-                arg,
-                len(code),
-                line,
-                op,
-                len(code) + len(extended),
-                op.opcode,
-                function.__code__.co_filename,
-            )
+            code += _backfill(**info)
             continue
 
         if op.opname not in {
