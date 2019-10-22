@@ -121,7 +121,7 @@ def hax(function: _F) -> _F:
     code: typing.List[int] = []
     consts: typing.List[object] = [function.__code__.co_consts[0]]
     names: typing.Dict[str, int] = {}
-    stacksize = function.__code__.co_stacksize
+    stacksize = 0
     jumps: typing.Dict[int, typing.List[typing.Dict[str, typing.Any]]] = {}
     deferred: typing.Dict[int, int] = {}
     varnames: typing.Dict[str, int] = {
@@ -155,7 +155,8 @@ def hax(function: _F) -> _F:
                     assert len(code) == offset, "Code changed size!"
 
             if op.opcode < dis.HAVE_ARGUMENT:
-                code += op.opcode, op.arg or 0
+                stacksize += max(0, dis.stack_effect(op.opcode))
+                code += op.opcode, 0
                 continue
 
             if op.opcode != _EXTENDED_ARG:
@@ -199,6 +200,12 @@ def hax(function: _F) -> _F:
                 info["arg"] = len(code) + len(extended) + 2
                 jumps.setdefault(op.argval, []).append(info)
 
+            stacksize += max(
+                0,
+                dis.stack_effect(
+                    op.opcode, info["arg"] if dis.HAVE_ARGUMENT <= op.opcode else None
+                ),
+            )
             code += _backfill(**info)
             continue
 
@@ -347,6 +354,7 @@ def hax(function: _F) -> _F:
                     filename=function.__code__.co_filename,
                 )
                 deferred_labels.setdefault(arg, []).append(info)
+                stacksize += max(0, dis.stack_effect(new_op, 0))
                 code += _backfill(**info)
                 continue
         elif new_op in dis.hasjrel:
@@ -381,12 +389,14 @@ def hax(function: _F) -> _F:
                 filename=function.__code__.co_filename,
             )
             deferred_labels.setdefault(arg, []).append(info)
+            stacksize += max(0, dis.stack_effect(new_op, 0))
             code += _backfill(**info)
             continue
         elif not isinstance(arg, int):
             message = f"Expected integer argument, got {arg!r}."
             _raise_hax_error(message, function.__code__.co_filename, line, following)
 
+        stacksize += max(0, dis.stack_effect(new_op, arg if has_arg else None))
         code += _backfill(
             arg=arg,
             start=0,
@@ -395,11 +405,6 @@ def hax(function: _F) -> _F:
             offset=0,
             new_op=new_op,
             filename=function.__code__.co_filename,
-        )
-
-        # This is the worst-case stack size... but we can probably be more exact.
-        stacksize = max(
-            stacksize, stacksize + dis.stack_effect(new_op, arg if has_arg else None)
         )
 
     else:
