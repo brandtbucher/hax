@@ -246,7 +246,11 @@ def hax(function: _F) -> _F:
         line = following.starts_line or line
 
         if op.argval == "LABEL":
-            assert arg not in labels, "Label already exists!"
+            if arg in labels:
+                message = f"Label {arg!r} already exists!"
+                _raise_hax_error(
+                    message, function.__code__.co_filename, line, following
+                )
             offset = len(code)
             labels[arg] = offset
             for info in deferred_labels.pop(arg, ()):
@@ -353,8 +357,11 @@ def hax(function: _F) -> _F:
                 _raise_hax_error(
                     message, function.__code__.co_filename, line, following
                 )
-            assert arg not in labels, "Backwards jump!"
-            # TODO: Only emit the bare minimum number of NOPs here!
+            if arg in labels:
+                message = f"Relative jumps must be forwards, not backwards!"
+                _raise_hax_error(
+                    message, function.__code__.co_filename, line, following
+                )
             max_jump = len(function.__code__.co_code) - len(code) - 2 - 1
             if 1 << 24 <= max_jump:
                 padding = 6
