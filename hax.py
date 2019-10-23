@@ -229,7 +229,6 @@ def hax(function: _F) -> _F:
                 continue
 
             if following.opcode == _LOAD_CONST:
-                # TODO: Validate type of arg.
                 arg = following.argval
                 args += 1
                 continue
@@ -366,7 +365,7 @@ def hax(function: _F) -> _F:
                     message, function.__code__.co_filename, line, following
                 )
             if arg in labels:
-                message = f"Relative jumps must be forwards, not backwards!"
+                message = "Relative jumps must be forwards, not backwards!"
                 _raise_hax_error(
                     message, function.__code__.co_filename, line, following
                 )
