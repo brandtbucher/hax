@@ -119,6 +119,8 @@ def hax(function: _F) -> _F:
     ops = _instructions_with_lines(function.__code__)
 
     code: typing.List[int] = []
+    last_line = function.__code__.co_firstlineno
+    lnotab: typing.List[int] = []
     consts: typing.List[object] = [function.__code__.co_consts[0]]
     names: typing.Dict[str, int] = {}
     stacksize = 0
@@ -156,7 +158,9 @@ def hax(function: _F) -> _F:
 
             if op.opcode < dis.HAVE_ARGUMENT:
                 stacksize += max(0, dis.stack_effect(op.opcode))
+                lnotab += 1, line - last_line
                 code += op.opcode, 0
+                last_line = line
                 continue
 
             if op.opcode != _EXTENDED_ARG:
@@ -206,7 +210,10 @@ def hax(function: _F) -> _F:
                     op.opcode, info["arg"] if dis.HAVE_ARGUMENT <= op.opcode else None
                 ),
             )
-            code += _backfill(**info)
+            new_code = tuple(_backfill(**info))
+            lnotab += 1, line - last_line, len(new_code) - 1, 0
+            code += new_code
+            last_line = line
             continue
 
         if op.opname not in {
@@ -263,6 +270,7 @@ def hax(function: _F) -> _F:
                 info["arg"] = offset - info["arg"]
                 code[info["start"] : info["offset"] + 2] = _backfill(**info)
                 assert len(code) == offset, "Code changed size!"
+            last_line = line
             continue
 
         new_op = dis.opmap[op.argval]
@@ -354,7 +362,10 @@ def hax(function: _F) -> _F:
                 )
                 deferred_labels.setdefault(arg, []).append(info)
                 stacksize += max(0, dis.stack_effect(new_op, 0))
-                code += _backfill(**info)
+                new_code = tuple(_backfill(**info))
+                lnotab += 1, line - last_line, len(new_code) - 1, 0
+                code += new_code
+                last_line = line
                 continue
         elif new_op in dis.hasjrel:
             try:
@@ -389,22 +400,30 @@ def hax(function: _F) -> _F:
             )
             deferred_labels.setdefault(arg, []).append(info)
             stacksize += max(0, dis.stack_effect(new_op, 0))
-            code += _backfill(**info)
+            new_code = tuple(_backfill(**info))
+            lnotab += 1, line - last_line, len(new_code) - 1, 0
+            code += new_code
+            last_line = line
             continue
         elif not isinstance(arg, int):
             message = f"Expected integer argument, got {arg!r}."
             _raise_hax_error(message, function.__code__.co_filename, line, following)
 
         stacksize += max(0, dis.stack_effect(new_op, arg if has_arg else None))
-        code += _backfill(
-            arg=arg,
-            start=0,
-            line=line,
-            following=following,
-            offset=0,
-            new_op=new_op,
-            filename=function.__code__.co_filename,
+        new_code = tuple(
+            _backfill(
+                arg=arg,
+                start=0,
+                line=line,
+                following=following,
+                offset=0,
+                new_op=new_op,
+                filename=function.__code__.co_filename,
+            )
         )
+        lnotab += 1, line - last_line, len(new_code) - 1, 0
+        code += new_code
+        last_line = line
 
     else:
 
@@ -425,7 +444,7 @@ def hax(function: _F) -> _F:
             ),
             function.__code__.co_kwonlyargcount,
             len(varnames),
-            stacksize,
+            stacksize,  # TODO: Fix this up?
             function.__code__.co_flags,
             bytes(code),
             tuple(consts),
@@ -434,7 +453,7 @@ def hax(function: _F) -> _F:
             function.__code__.co_filename,
             function.__code__.co_name,
             function.__code__.co_firstlineno,
-            function.__code__.co_lnotab,
+            bytes(lnotab),  # TODO: Fix this up!
             function.__code__.co_freevars,
             function.__code__.co_cellvars,
         ),
