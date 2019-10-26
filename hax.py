@@ -270,8 +270,8 @@ def _hax(bytecode: CodeType) -> CodeType:
             continue
 
         if op.opname not in {"LOAD_FAST", "LOAD_GLOBAL", "LOAD_NAME"}:
-
             _error("Ops must consist of a simple call.", bytecode.co_filename, line)
+
         args = 0
         arg = 0
 
@@ -288,16 +288,16 @@ def _hax(bytecode: CodeType) -> CodeType:
             break
 
         else:
-
             _error("Ops must consist of a simple call.", bytecode.co_filename, line)
+
         if following.opcode != _CALL_FUNCTION:
-
             _error("Ops must consist of a simple call.", bytecode.co_filename, line)
+
         following, _ = next(ops)
 
         if following.opcode != _POP_TOP:
-
             _error("Ops must be standalone statements.", bytecode.co_filename, line)
+
         line = following.starts_line or line
 
         if op.argval == "LABEL":
