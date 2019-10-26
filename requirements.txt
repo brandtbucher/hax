@@ -3,3 +3,4 @@ black
 hypothesis
 mypy
 pytest >= 4.4.0
+pytest-cov
