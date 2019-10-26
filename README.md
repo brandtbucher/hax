@@ -51,7 +51,7 @@ from hax import *
 
 @hax 
 def doubled(items):
-    
+
     BUILD_LIST(0)
 
     for item in items:
