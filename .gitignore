@@ -1,4 +1,5 @@
 *.egg-info/
+.coverage
 .hypothesis/
 .mypy_cache/
 .pytest_cache/
