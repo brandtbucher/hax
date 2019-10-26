@@ -73,8 +73,8 @@ class HaxUsageError(RuntimeError):
     pass
 
 
-def _raise_hax_error(message: str, filename: str, line: int) -> NoReturn:
 
+def _error(message: str, filename: str, line: int) -> NoReturn:
     source: Optional[str] = None
 
     try:
@@ -112,17 +112,15 @@ def _backfill(
     assert min_size in {2, 4, 6, 8}, "Invalid min_size!"
 
     if (1 << 32) - 1 < arg:
-        _raise_hax_error(
+        _error(
             f"Args greater than {(1 << 32) - 1:,} aren't supported (got {arg:,})!",
             filename,
             line,
         )
 
     if arg < 0:
-        _raise_hax_error(
-            f"Args less than 0 aren't supported (got {arg:,})!", filename, line
-        )
 
+        _error(f"Args less than 0 aren't supported (got {arg:,})!", filename, line)
     if 1 << 24 <= arg:
         yield _EXTENDED_ARG
         yield arg >> 24 & 255
@@ -279,10 +277,8 @@ def _hax(bytecode: CodeType) -> CodeType:
             continue
 
         if op.opname not in {"LOAD_FAST", "LOAD_GLOBAL", "LOAD_NAME"}:
-            _raise_hax_error(
-                "Ops must consist of a simple call.", bytecode.co_filename, line
-            )
 
+            _error("Ops must consist of a simple call.", bytecode.co_filename, line)
         args = 0
         arg = 0
 
@@ -299,29 +295,21 @@ def _hax(bytecode: CodeType) -> CodeType:
             break
 
         else:
-            _raise_hax_error(
-                "Ops must consist of a simple call.", bytecode.co_filename, line
-            )
 
+            _error("Ops must consist of a simple call.", bytecode.co_filename, line)
         if following.opcode != _CALL_FUNCTION:
-            _raise_hax_error(
-                "Ops must consist of a simple call.", bytecode.co_filename, line
-            )
 
+            _error("Ops must consist of a simple call.", bytecode.co_filename, line)
         following, _ = next(ops)
 
         if following.opcode != _POP_TOP:
-            _raise_hax_error(
-                "Ops must be standalone statements.", bytecode.co_filename, line
-            )
 
+            _error("Ops must be standalone statements.", bytecode.co_filename, line)
         line = following.starts_line or line
 
         if op.argval == "LABEL":
             if arg in labels:
-                _raise_hax_error(
-                    f"Label {arg!r} already exists!", bytecode.co_filename, line
-                )
+                _error(f"Label {arg!r} already exists!", bytecode.co_filename, line)
             offset = len(code)
             labels[arg] = offset
             for info in deferred_labels.pop(arg, ()):
@@ -338,7 +326,7 @@ def _hax(bytecode: CodeType) -> CodeType:
         has_arg = HAVE_ARGUMENT <= new_op
 
         if args != has_arg:
-            _raise_hax_error(
+            _error(
                 f"Number of arguments is wrong (expected {int(has_arg)}, got {args}).",
                 bytecode.co_filename,
                 line,
@@ -356,15 +344,11 @@ def _hax(bytecode: CodeType) -> CodeType:
 
         if new_op in _HASLOCAL:
             if not isinstance(arg, str):
-                _raise_hax_error(
-                    f"Expected a string (got {arg!r}).", bytecode.co_filename, line
-                )
+                _error(f"Expected a string (got {arg!r}).", bytecode.co_filename, line)
             info["arg"] = varnames.setdefault(arg, len(varnames))
         elif new_op in _HASNAME:
             if not isinstance(arg, str):
-                _raise_hax_error(
-                    f"Expected a string (got {arg!r}).", bytecode.co_filename, line
-                )
+                _error(f"Expected a string (got {arg!r}).", bytecode.co_filename, line)
             info["arg"] = names.setdefault(arg, len(names))
         elif new_op in _HASCONST:
             try:
@@ -374,26 +358,22 @@ def _hax(bytecode: CodeType) -> CodeType:
                 info["arg"] = len(consts) - 1
         elif new_op in _HASCOMPARE:
             if not isinstance(arg, str):
-                _raise_hax_error(
-                    f"Expected a string (got {arg!r}).", bytecode.co_filename, line
-                )
+                _error(f"Expected a string (got {arg!r}).", bytecode.co_filename, line)
             try:
                 info["arg"] = cmp_op.index(arg)
             except ValueError:
-                _raise_hax_error(
+                _error(
                     f"Bad comparision operator {arg!r}; expected one of {' / '.join(map(repr, cmp_op))}!",
                     bytecode.co_filename,
                     line,
                 )
         elif new_op in _HASFREE:
             if not isinstance(arg, str):
-                _raise_hax_error(
-                    f"Expected a string (got {arg!r}).", bytecode.co_filename, line
-                )
+                _error(f"Expected a string (got {arg!r}).", bytecode.co_filename, line)
             try:
                 info["arg"] = (bytecode.co_cellvars + bytecode.co_freevars).index(arg)
             except ValueError:
-                _raise_hax_error(
+                _error(
                     f'No free/cell variable {arg!r}; maybe use "nonlocal" in the inner scope to compile correctly?',
                     bytecode.co_filename,
                     line,
@@ -401,7 +381,7 @@ def _hax(bytecode: CodeType) -> CodeType:
         elif new_op in _HASJUMP:
             if arg in labels:
                 if new_op in _HASJREL:
-                    _raise_hax_error(
+                    _error(
                         "Relative jumps must be forwards, not backwards!",
                         bytecode.co_filename,
                         line,
@@ -426,7 +406,7 @@ def _hax(bytecode: CodeType) -> CodeType:
                 info["min_size"] = padding + 2
                 deferred_labels.setdefault(arg, []).append(info)
         elif not isinstance(arg, int):
-            _raise_hax_error(
+            _error(
                 f"Expected integer argument, got {arg!r}.", bytecode.co_filename, line
             )
 
