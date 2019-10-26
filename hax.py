@@ -73,7 +73,6 @@ class HaxUsageError(RuntimeError):
     pass
 
 
-
 def _error(message: str, filename: str, line: int) -> NoReturn:
     source: Optional[str] = None
 
