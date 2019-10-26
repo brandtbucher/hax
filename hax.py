@@ -29,6 +29,16 @@ _NOP = dis.opmap["NOP"]
 _POP_TOP = dis.opmap["POP_TOP"]
 
 
+_HASCOMPARE = frozenset(dis.hascompare)
+_HASCONST = frozenset(dis.hasconst)
+_HASFREE = frozenset(dis.hasfree)
+_HASJABS = frozenset(dis.hasjabs)
+_HASJREL = frozenset(dis.hasjrel)
+_HASJUMP = _HASJABS | _HASJREL
+_HASLOCAL = frozenset(dis.haslocal)
+_HASNAME = frozenset(dis.hasname)
+
+
 class HaxCompileError(SyntaxError):
     pass
 
@@ -212,23 +222,23 @@ def _hax(bytecode: types.CodeType) -> types.CodeType:
                 filename=bytecode.co_filename,
             )
 
-            if op.opcode in dis.haslocal:
+            if op.opcode in _HASLOCAL:
                 info["arg"] = varnames.setdefault(op.argval, len(varnames))
-            elif op.opcode in dis.hasname:
+            elif op.opcode in _HASNAME:
                 info["arg"] = names.setdefault(op.argval, len(names))
-            elif op.opcode in dis.hasconst:
+            elif op.opcode in _HASCONST:
                 try:
                     info["arg"] = consts.index(op.argval)
                 except ValueError:
                     consts.append(op.argval)
                     info["arg"] = len(consts) - 1
-            elif op.opcode in dis.hasjabs:
+            elif op.opcode in _HASJABS:
                 if op.argval <= op.offset:
                     info["arg"] = deferred[op.argval]
                 else:
                     info["arg"] = 0
                     jumps.setdefault(op.argval, []).append(info)
-            elif op.opcode in dis.hasjrel:
+            elif op.opcode in _HASJREL:
                 info["arg"] = len(code) + len(extended) + 2
                 jumps.setdefault(op.argval, []).append(info)
 
@@ -311,23 +321,23 @@ def _hax(bytecode: types.CodeType) -> types.CodeType:
             new_op=new_op,
             filename=bytecode.co_filename,
         )
-        if new_op in dis.haslocal:
+        if new_op in _HASLOCAL:
             if not isinstance(arg, str):
                 message = f"Expected a string (got {arg!r})."
                 _raise_hax_error(message, bytecode.co_filename, line, following)
             info["arg"] = varnames.setdefault(arg, len(varnames))
-        elif new_op in dis.hasname:
+        elif new_op in _HASNAME:
             if not isinstance(arg, str):
                 message = f"Expected a string (got {arg!r})."
                 _raise_hax_error(message, bytecode.co_filename, line, following)
             info["arg"] = names.setdefault(arg, len(names))
-        elif new_op in dis.hasconst:
+        elif new_op in _HASCONST:
             try:
                 info["arg"] = consts.index(arg)
             except ValueError:
                 consts.append(arg)
                 info["arg"] = len(consts) - 1
-        elif new_op in dis.hascompare:
+        elif new_op in _HASCOMPARE:
             if not isinstance(arg, str):
                 message = f"Expected a string (got {arg!r})."
                 _raise_hax_error(message, bytecode.co_filename, line, following)
@@ -336,7 +346,7 @@ def _hax(bytecode: types.CodeType) -> types.CodeType:
             except ValueError:
                 message = f"Bad comparision operator {arg!r}; expected one of {' / '.join(map(repr, dis.cmp_op))}!"
                 _raise_hax_error(message, bytecode.co_filename, line, following)
-        elif new_op in dis.hasfree:
+        elif new_op in _HASFREE:
             if not isinstance(arg, str):
                 message = f"Expected a string (got {arg!r})."
                 _raise_hax_error(message, bytecode.co_filename, line, following)
@@ -345,9 +355,9 @@ def _hax(bytecode: types.CodeType) -> types.CodeType:
             except ValueError:
                 message = f'No free/cell variable {arg!r}; maybe use "nonlocal" in the inner scope to compile correctly?'
                 _raise_hax_error(message, bytecode.co_filename, line, following)
-        elif new_op in dis.hasjabs + dis.hasjrel:
+        elif new_op in _HASJUMP:
             if arg in labels:
-                if new_op in dis.hasjrel:
+                if new_op in _HASJREL:
                     message = "Relative jumps must be forwards, not backwards!"
                     _raise_hax_error(message, bytecode.co_filename, line, following)
                 info["arg"] = labels[arg]
@@ -355,7 +365,7 @@ def _hax(bytecode: types.CodeType) -> types.CodeType:
                 max_jump = (
                     len(bytecode.co_code)
                     - 1
-                    - ((len(code) + 2) if new_op in dis.hasjrel else 0)
+                    - ((len(code) + 2) if new_op in _HASJREL else 0)
                 )
                 if 1 << 24 <= max_jump:
                     padding = 6
@@ -365,7 +375,7 @@ def _hax(bytecode: types.CodeType) -> types.CodeType:
                     padding = 2
                 else:
                     padding = 0
-                info["arg"] = (len(code) + padding + 2) if new_op in dis.hasjrel else 0
+                info["arg"] = (len(code) + padding + 2) if new_op in _HASJREL else 0
                 info["start"] = len(code)
                 info["offset"] = len(code) + padding
                 deferred_labels.setdefault(arg, []).append(info)
