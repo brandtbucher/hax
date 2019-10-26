@@ -79,7 +79,7 @@ def _backfill(
 
     size = ((offset - start) >> 1) + 1
 
-    assert 1 <= size < 5
+    assert 1 <= size < 5, "Invalid size!"
 
     if (1 << 32) - 1 < arg:
         message = f"Args greater than {(1 << 32) - 1:,} aren't supported (got {arg:,})!"
@@ -114,14 +114,42 @@ def _backfill(
     yield arg & 255
 
 
-def hax(function: _F) -> _F:
+def hax(target: _F) -> _F:
 
-    ops = _instructions_with_lines(function.__code__)
+    if isinstance(target, types.FunctionType):
+
+        new = types.FunctionType(
+            _hax(target.__code__),
+            target.__globals__,
+            target.__name__,
+            target.__defaults__,
+            target.__closure__,
+        )
+
+        if target.__annotations__:
+            new.__annotations__ = target.__annotations__.copy()
+
+        if target.__kwdefaults__ is not None:
+            new.__kwdefaults__ = target.__kwdefaults__.copy()
+
+        if target.__dict__:
+            new.__dict__ = target.__dict__.copy()
+
+    else:
+
+        raise TypeError(f"HAX doesn't support this! Got type {type(target)!r}.")
+
+    return new  # type: ignore
+
+
+def _hax(bytecode: types.CodeType) -> types.CodeType:
+
+    ops = _instructions_with_lines(bytecode)
 
     code: typing.List[int] = []
-    last_line = function.__code__.co_firstlineno
+    last_line = bytecode.co_firstlineno
     lnotab: typing.List[int] = []
-    consts: typing.List[object] = [function.__code__.co_consts[0]]
+    consts: typing.List[object] = [bytecode.co_consts[0]]
     names: typing.Dict[str, int] = {}
     stacksize = 0
     jumps: typing.Dict[int, typing.List[typing.Dict[str, typing.Any]]] = {}
@@ -129,10 +157,10 @@ def hax(function: _F) -> _F:
     varnames: typing.Dict[str, int] = {
         name: index
         for index, name in enumerate(
-            function.__code__.co_varnames[
-                : function.__code__.co_argcount
-                + function.__code__.co_kwonlyargcount
-                + getattr(function.__code__, "co_posonlyargcount", 0)
+            bytecode.co_varnames[
+                : bytecode.co_argcount
+                + bytecode.co_kwonlyargcount
+                + getattr(bytecode, "co_posonlyargcount", 0)
             ]
         )
     }
@@ -142,7 +170,7 @@ def hax(function: _F) -> _F:
         typing.Hashable, typing.List[typing.Dict[str, typing.Any]]
     ] = {}
 
-    for _ in range((len(function.__code__.co_code) >> 1) + 1):
+    while True:
 
         extended: typing.List[int] = []
 
@@ -166,7 +194,7 @@ def hax(function: _F) -> _F:
             if op.opcode != _EXTENDED_ARG:
                 break
 
-            assert isinstance(op.arg, int)
+            assert isinstance(op.arg, int), "Non-integer argument!"
             extended += _EXTENDED_ARG, op.arg
 
         else:
@@ -181,7 +209,7 @@ def hax(function: _F) -> _F:
                 following=op,
                 offset=len(code) + len(extended),
                 new_op=op.opcode,
-                filename=function.__code__.co_filename,
+                filename=bytecode.co_filename,
             )
 
             if op.opcode in dis.haslocal:
@@ -210,22 +238,15 @@ def hax(function: _F) -> _F:
                     op.opcode, info["arg"] if dis.HAVE_ARGUMENT <= op.opcode else None
                 ),
             )
-            new_code = tuple(_backfill(**info))
+            new_code = [*_backfill(**info)]
             lnotab += 1, line - last_line, len(new_code) - 1, 0
             code += new_code
             last_line = line
             continue
 
-        if op.opname not in {
-            # "LOAD_CLASSDEREF",
-            # "LOAD_CLOSURE",
-            # "LOAD_DEREF",
-            "LOAD_FAST",
-            "LOAD_GLOBAL",
-            "LOAD_NAME",
-        }:
+        if op.opname not in {"LOAD_FAST", "LOAD_GLOBAL", "LOAD_NAME"}:
             message = "Ops must consist of a simple call."
-            _raise_hax_error(message, function.__code__.co_filename, line, op)
+            _raise_hax_error(message, bytecode.co_filename, line, op)
 
         args = 0
         arg = 0
@@ -244,26 +265,24 @@ def hax(function: _F) -> _F:
 
         else:
             message = "Ops must consist of a simple call."
-            _raise_hax_error(message, function.__code__.co_filename, line, op)
+            _raise_hax_error(message, bytecode.co_filename, line, op)
 
         if following.opcode != _CALL_FUNCTION:
             message = "Ops must consist of a simple call."
-            _raise_hax_error(message, function.__code__.co_filename, line, op)
+            _raise_hax_error(message, bytecode.co_filename, line, op)
 
         following, _ = next(ops)
 
         if following.opcode != _POP_TOP:
             message = "Ops must be standalone statements."
-            _raise_hax_error(message, function.__code__.co_filename, line, op)
+            _raise_hax_error(message, bytecode.co_filename, line, op)
 
         line = following.starts_line or line
 
         if op.argval == "LABEL":
             if arg in labels:
                 message = f"Label {arg!r} already exists!"
-                _raise_hax_error(
-                    message, function.__code__.co_filename, line, following
-                )
+                _raise_hax_error(message, bytecode.co_filename, line, following)
             offset = len(code)
             labels[arg] = offset
             for info in deferred_labels.pop(arg, ()):
@@ -281,68 +300,63 @@ def hax(function: _F) -> _F:
             message = (
                 f"Number of arguments is wrong (expected {int(has_arg)}, got {args})."
             )
-            _raise_hax_error(message, function.__code__.co_filename, line, op)
+            _raise_hax_error(message, bytecode.co_filename, line, op)
 
+        info = dict(
+            arg=arg,
+            start=0,
+            line=line,
+            following=following,
+            offset=0,
+            new_op=new_op,
+            filename=bytecode.co_filename,
+        )
         if new_op in dis.haslocal:
             if not isinstance(arg, str):
                 message = f"Expected a string (got {arg!r})."
-                _raise_hax_error(
-                    message, function.__code__.co_filename, line, following
-                )
-            arg = varnames.setdefault(arg, len(varnames))
+                _raise_hax_error(message, bytecode.co_filename, line, following)
+            info["arg"] = varnames.setdefault(arg, len(varnames))
         elif new_op in dis.hasname:
             if not isinstance(arg, str):
                 message = f"Expected a string (got {arg!r})."
-                _raise_hax_error(
-                    message, function.__code__.co_filename, line, following
-                )
-            arg = names.setdefault(arg, len(names))
+                _raise_hax_error(message, bytecode.co_filename, line, following)
+            info["arg"] = names.setdefault(arg, len(names))
         elif new_op in dis.hasconst:
             try:
-                arg = consts.index(arg)
+                info["arg"] = consts.index(arg)
             except ValueError:
                 consts.append(arg)
-                arg = len(consts) - 1
+                info["arg"] = len(consts) - 1
         elif new_op in dis.hascompare:
             if not isinstance(arg, str):
                 message = f"Expected a string (got {arg!r})."
-                _raise_hax_error(
-                    message, function.__code__.co_filename, line, following
-                )
+                _raise_hax_error(message, bytecode.co_filename, line, following)
             try:
-                arg = dis.cmp_op.index(arg)
+                info["arg"] = dis.cmp_op.index(arg)
             except ValueError:
                 message = f"Bad comparision operator {arg!r}; expected one of {' / '.join(map(repr, dis.cmp_op))}!"
-                _raise_hax_error(
-                    message, function.__code__.co_filename, line, following
-                )
+                _raise_hax_error(message, bytecode.co_filename, line, following)
         elif new_op in dis.hasfree:
             if not isinstance(arg, str):
                 message = f"Expected a string (got {arg!r})."
-                _raise_hax_error(
-                    message, function.__code__.co_filename, line, following
-                )
+                _raise_hax_error(message, bytecode.co_filename, line, following)
             try:
-                arg = (
-                    function.__code__.co_cellvars + function.__code__.co_freevars
-                ).index(arg)
+                info["arg"] = (bytecode.co_cellvars + bytecode.co_freevars).index(arg)
             except ValueError:
                 message = f'No free/cell variable {arg!r}; maybe use "nonlocal" in the inner scope to compile correctly?'
-                _raise_hax_error(
-                    message, function.__code__.co_filename, line, following
-                )
-        elif new_op in dis.hasjabs:
-            try:
-                hash(arg)
-            except TypeError:
-                message = f"Expected a hashable label (got {arg!r})."
-                _raise_hax_error(
-                    message, function.__code__.co_filename, line, following
-                )
+                _raise_hax_error(message, bytecode.co_filename, line, following)
+        elif new_op in dis.hasjabs + dis.hasjrel:
             if arg in labels:
-                arg = labels[arg]
+                if new_op in dis.hasjrel:
+                    message = "Relative jumps must be forwards, not backwards!"
+                    _raise_hax_error(message, bytecode.co_filename, line, following)
+                info["arg"] = labels[arg]
             else:
-                max_jump = len(function.__code__.co_code) - 1
+                max_jump = (
+                    len(bytecode.co_code)
+                    - 1
+                    - ((len(code) + 2) if new_op in dis.hasjrel else 0)
+                )
                 if 1 << 24 <= max_jump:
                     padding = 6
                 elif 1 << 16 <= max_jump:
@@ -351,123 +365,49 @@ def hax(function: _F) -> _F:
                     padding = 2
                 else:
                     padding = 0
-                info = dict(
-                    arg=0,
-                    start=len(code),
-                    line=line,
-                    following=following,
-                    offset=len(code) + padding,
-                    new_op=new_op,
-                    filename=function.__code__.co_filename,
-                )
+                info["arg"] = (len(code) + padding + 2) if new_op in dis.hasjrel else 0
+                info["start"] = len(code)
+                info["offset"] = len(code) + padding
                 deferred_labels.setdefault(arg, []).append(info)
-                stacksize += max(0, dis.stack_effect(new_op, 0))
-                new_code = tuple(_backfill(**info))
-                lnotab += 1, line - last_line, len(new_code) - 1, 0
-                code += new_code
-                last_line = line
-                continue
-        elif new_op in dis.hasjrel:
-            try:
-                hash(arg)
-            except TypeError:
-                message = f"Expected a hashable label (got {arg!r})."
-                _raise_hax_error(
-                    message, function.__code__.co_filename, line, following
-                )
-            if arg in labels:
-                message = "Relative jumps must be forwards, not backwards!"
-                _raise_hax_error(
-                    message, function.__code__.co_filename, line, following
-                )
-            max_jump = len(function.__code__.co_code) - len(code) - 2 - 1
-            if 1 << 24 <= max_jump:
-                padding = 6
-            elif 1 << 16 <= max_jump:
-                padding = 4
-            elif 1 << 8 <= max_jump:
-                padding = 2
-            else:
-                padding = 0
-            info = dict(
-                arg=len(code) + padding + 2,
-                start=len(code),
-                line=line,
-                following=following,
-                offset=len(code) + padding,
-                new_op=new_op,
-                filename=function.__code__.co_filename,
-            )
-            deferred_labels.setdefault(arg, []).append(info)
-            stacksize += max(0, dis.stack_effect(new_op, 0))
-            new_code = tuple(_backfill(**info))
-            lnotab += 1, line - last_line, len(new_code) - 1, 0
-            code += new_code
-            last_line = line
-            continue
         elif not isinstance(arg, int):
             message = f"Expected integer argument, got {arg!r}."
-            _raise_hax_error(message, function.__code__.co_filename, line, following)
+            _raise_hax_error(message, bytecode.co_filename, line, following)
 
-        stacksize += max(0, dis.stack_effect(new_op, arg if has_arg else None))
-        new_code = tuple(
-            _backfill(
-                arg=arg,
-                start=0,
-                line=line,
-                following=following,
-                offset=0,
-                new_op=new_op,
-                filename=function.__code__.co_filename,
-            )
-        )
+        stacksize += max(0, dis.stack_effect(new_op, info["arg"] if has_arg else None))
+        new_code = [*_backfill(**info)]
         lnotab += 1, line - last_line, len(new_code) - 1, 0
         code += new_code
         last_line = line
-
-    else:
-
-        assert False, "Main loop exited prematurely!"
 
     if deferred_labels:
         raise HaxUsageError(
             f"The following labels don't exist: {', '.join(map(repr, deferred_labels))}"
         )
 
-    new = types.FunctionType(
-        types.CodeType(  # type: ignore
-            function.__code__.co_argcount,
-            *(
-                (function.__code__.co_posonlyargcount,)  # type: ignore
-                if hasattr(function.__code__, "co_posonlyargcount")
-                else ()
-            ),
-            function.__code__.co_kwonlyargcount,
-            len(varnames),
-            stacksize,  # TODO: Fix this up?
-            function.__code__.co_flags,
-            bytes(code),
-            tuple(consts),
-            tuple(names),
-            tuple(varnames),
-            function.__code__.co_filename,
-            function.__code__.co_name,
-            function.__code__.co_firstlineno,
-            bytes(lnotab),  # TODO: Fix this up!
-            function.__code__.co_freevars,
-            function.__code__.co_cellvars,
-        ),
-        function.__globals__,  # type: ignore
-        function.__name__,
-        function.__defaults__,  # type: ignore
-        function.__closure__,  # type: ignore
+    maybe_posonlyargcount = (
+        (bytecode.co_posonlyargcount,)  # type: ignore
+        if hasattr(bytecode, "co_posonlyargcount")
+        else ()
     )
 
-    new.__annotations__ = function.__annotations__.copy()
-    new.__kwdefaults__ = (function.__kwdefaults__ or {}).copy() or None  # type: ignore
-    new.__dict__ = function.__dict__.copy()
-
-    return new  # type: ignore
+    return types.CodeType(  # type: ignore
+        bytecode.co_argcount,
+        *maybe_posonlyargcount,
+        bytecode.co_kwonlyargcount,
+        len(varnames),
+        stacksize,  # TODO: Fix this up?
+        bytecode.co_flags,
+        bytes(code),
+        tuple(consts),
+        tuple(names),
+        tuple(varnames),
+        bytecode.co_filename,
+        bytecode.co_name,
+        bytecode.co_firstlineno,
+        bytes(lnotab),  # TODO: Fix this up!
+        bytecode.co_freevars,
+        bytecode.co_cellvars,
+    )
 
 
 def LABEL(arg: typing.Hashable) -> None:
