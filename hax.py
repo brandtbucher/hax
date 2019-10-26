@@ -99,13 +99,7 @@ def _instructions_with_lines(code: CodeType) -> Iterator[Tuple[Instruction, int]
 
 
 def _backfill(
-    arg: int,
-    start: int,
-    line: int,
-    following: Instruction,
-    min_size: int,
-    new_op: int,
-    filename: str,
+    arg: int, line: int, min_size: int, new_op: int, filename: str, **_: object
 ) -> Iterator[int]:
 
     assert min_size in {2, 4, 6, 8}, "Invalid min_size!"
