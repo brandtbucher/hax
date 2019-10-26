@@ -80,12 +80,12 @@ def _backfill(
     start: int,
     line: int,
     following: dis.Instruction,
-    size: int,
+    min_size: int,
     new_op: int,
     filename: str,
 ) -> typing.Iterator[int]:
 
-    assert not (size & 1) and (0 <= size < 7), "Invalid size!"
+    assert min_size in {2, 4, 6, 8}, "Invalid min_size!"
 
     if (1 << 32) - 1 < arg:
         message = f"Args greater than {(1 << 32) - 1:,} aren't supported (got {arg:,})!"
@@ -98,21 +98,21 @@ def _backfill(
     if 1 << 24 <= arg:
         yield _EXTENDED_ARG
         yield arg >> 24 & 255
-    elif 6 == size:
+    elif 8 == min_size:
         yield _NOP
         yield 0
 
     if 1 << 16 <= arg:
         yield _EXTENDED_ARG
         yield arg >> 16 & 255
-    elif 4 <= size:
+    elif 6 <= min_size:
         yield _NOP
         yield 0
 
     if 1 << 8 <= arg:
         yield _EXTENDED_ARG
         yield arg >> 8 & 255
-    elif 2 <= size:
+    elif 4 <= min_size:
         yield _NOP
         yield 0
 
@@ -187,7 +187,7 @@ def _hax(bytecode: types.CodeType) -> types.CodeType:
                 offset = len(code)
                 for info in jumps.get(op.offset, ()):
                     info["arg"] = offset - info["arg"]
-                    code[info["start"] : info["start"] + info["size"] + 2] = _backfill(
+                    code[info["start"] : info["start"] + info["min_size"]] = _backfill(
                         **info
                     )
                     assert len(code) == offset, "Code changed size!"
@@ -215,7 +215,7 @@ def _hax(bytecode: types.CodeType) -> types.CodeType:
                 start=len(code),
                 line=line,
                 following=op,
-                size=len(extended),
+                min_size=len(extended) + 2,
                 new_op=op.opcode,
                 filename=bytecode.co_filename,
             )
@@ -295,7 +295,7 @@ def _hax(bytecode: types.CodeType) -> types.CodeType:
             labels[arg] = offset
             for info in deferred_labels.pop(arg, ()):
                 info["arg"] = offset - info["arg"]
-                code[info["start"] : info["start"] + info["size"] + 2] = _backfill(
+                code[info["start"] : info["start"] + info["min_size"]] = _backfill(
                     **info
                 )
                 assert len(code) == offset, "Code changed size!"
@@ -317,7 +317,7 @@ def _hax(bytecode: types.CodeType) -> types.CodeType:
             start=0,
             line=line,
             following=following,
-            size=0,
+            min_size=2,
             new_op=new_op,
             filename=bytecode.co_filename,
         )
@@ -378,7 +378,7 @@ def _hax(bytecode: types.CodeType) -> types.CodeType:
                     padding = 0
                 info["arg"] = (len(code) + padding + 2) if new_op in _HASJREL else 0
                 info["start"] = len(code)
-                info["size"] = padding
+                info["min_size"] = padding + 2
                 deferred_labels.setdefault(arg, []).append(info)
         elif not isinstance(arg, int):
             message = f"Expected integer argument, got {arg!r}."
