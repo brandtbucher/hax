@@ -1,22 +1,22 @@
-import setuptools  # type: ignore
+from setuptools import setup  # type: ignore
 
-import hax
+from hax import __version__ as version
 
 
 with open("README.md") as readme:
-    long_description = readme.read()
+    _LONG_DESCRIPTION = readme.read()
 
 
-setuptools.setup(
+setup(
     author="Brandt Bucher",
     author_email="brandtbucher@gmail.com",
     description="Write compiled bytecode inline with standard Python syntax.",
     keywords="bytecode",
     license="MIT",
-    long_description=long_description,
+    long_description=_LONG_DESCRIPTION,
     long_description_content_type="text/markdown",
     name="hax",
     py_modules=["hax"],
     url="https://github.com/brandtbucher/hax",
-    version=hax.__version__,
+    version=version,
 )

@@ -1,49 +1,46 @@
-import dis
-import itertools
-import re
-import sys
-import typing
+from dis import HAVE_ARGUMENT, opmap
+from itertools import chain
+from re import findall
+from typing import Any, Dict, Iterator, Sequence
 
-import hypothesis
-import pytest
+from hypothesis import given
+from hypothesis.strategies import builds, lists
+from pytest import mark, param, raises
 
 import hax
 
 
-objects = hypothesis.strategies.builds(object)
-
-
-def get_examples() -> typing.Iterator[str]:
+def get_examples() -> Iterator[str]:
 
     with open("README.md") as readme:
-        examples = re.findall(r"\n```py(\n[^`]+\n)```\n", readme.read())
+        examples = findall(r"\n```py(\n[^`]+\n)```\n", readme.read())
 
     for i, example in enumerate(examples):
-        yield pytest.param(example, id=f"{i}")
+        yield param(example, id=f"{i}")
 
 
-@pytest.mark.parametrize("code", get_examples())
-@hypothesis.given(items=hypothesis.strategies.lists(objects))
-def test_readme(code: str, items: typing.Sequence[object]) -> None:
+@mark.parametrize("code", get_examples())
+@given(items=lists(builds(object)))
+def test_readme(code: str, items: Sequence[object]) -> None:
 
-    namespace: typing.Dict[str, typing.Any] = {"__name__": "__main__"}
+    namespace: Dict[str, Any] = {"__name__": "__main__"}
     exec(code, namespace)
 
     actual = namespace["doubled"](items)
-    expected = [*itertools.chain.from_iterable(zip(items, items))]
+    expected = [*chain.from_iterable(zip(items, items))]
 
     assert actual == expected
 
 
-@pytest.mark.parametrize("opname, opcode", dis.opmap.items())
+@mark.parametrize("opname, opcode", opmap.items())
 def test_opcodes(opname: str, opcode: int) -> None:
 
-    arg = dis.HAVE_ARGUMENT <= opcode
+    arg = HAVE_ARGUMENT <= opcode
 
     assert hasattr(hax, opname)
 
-    with pytest.raises(hax.HaxUsageError if arg else TypeError):
+    with raises(hax.HaxUsageError if arg else TypeError):
         getattr(hax, opname)(...)
 
-    with pytest.raises(TypeError if arg else hax.HaxUsageError):
+    with raises(TypeError if arg else hax.HaxUsageError):
         getattr(hax, opname)()

@@ -1,42 +1,68 @@
-import dis
-import os
-import sys
-import types
-import typing
-
-
 __version__ = "0.1.1"
 
 
-if sys.version_info < (3, 6, 2):
+from sys import implementation, version_info
+
+
+if version_info < (3, 6, 2):
     raise RuntimeError("HAX only supports Python 3.6.2+!")
 
 
-if sys.implementation.name != "cpython":
+if implementation.name != "cpython":
     raise RuntimeError("HAX only supports CPython!")
 
 
-_F = typing.TypeVar("_F", bound=typing.Callable[..., typing.Any])
+from dis import (
+    HAVE_ARGUMENT,
+    Instruction,
+    cmp_op,
+    get_instructions,
+    hascompare,
+    hasconst,
+    hasfree,
+    hasjabs,
+    hasjrel,
+    haslocal,
+    hasname,
+    opmap,
+    stack_effect,
+)
+from types import CodeType, FunctionType
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Hashable,
+    Iterator,
+    List,
+    Optional,
+    Tuple,
+    TypeVar,
+    NoReturn,
+)
+
+
+_F = TypeVar("_F", bound=Callable[..., Any])
 
 
 _USAGE_MESSAGE = "HAX inline bytecode functions are not meant to be used directly; you must decorate any functions that use them with @hax."
 
 
-_CALL_FUNCTION = dis.opmap["CALL_FUNCTION"]
-_EXTENDED_ARG = dis.opmap["EXTENDED_ARG"]
-_LOAD_CONST = dis.opmap["LOAD_CONST"]
-_NOP = dis.opmap["NOP"]
-_POP_TOP = dis.opmap["POP_TOP"]
+_CALL_FUNCTION = opmap["CALL_FUNCTION"]
+_EXTENDED_ARG = opmap["EXTENDED_ARG"]
+_LOAD_CONST = opmap["LOAD_CONST"]
+_NOP = opmap["NOP"]
+_POP_TOP = opmap["POP_TOP"]
 
 
-_HASCOMPARE = frozenset(dis.hascompare)
-_HASCONST = frozenset(dis.hasconst)
-_HASFREE = frozenset(dis.hasfree)
-_HASJABS = frozenset(dis.hasjabs)
-_HASJREL = frozenset(dis.hasjrel)
+_HASCOMPARE = frozenset(hascompare)
+_HASCONST = frozenset(hasconst)
+_HASFREE = frozenset(hasfree)
+_HASJABS = frozenset(hasjabs)
+_HASJREL = frozenset(hasjrel)
 _HASJUMP = _HASJABS | _HASJREL
-_HASLOCAL = frozenset(dis.haslocal)
-_HASNAME = frozenset(dis.hasname)
+_HASLOCAL = frozenset(haslocal)
+_HASNAME = frozenset(hasname)
 
 
 class HaxCompileError(SyntaxError):
@@ -47,9 +73,9 @@ class HaxUsageError(RuntimeError):
     pass
 
 
-def _raise_hax_error(message: str, filename: str, line: int) -> typing.NoReturn:
+def _raise_hax_error(message: str, filename: str, line: int) -> NoReturn:
 
-    source: typing.Optional[str] = None
+    source: Optional[str] = None
 
     try:
 
@@ -66,11 +92,9 @@ def _raise_hax_error(message: str, filename: str, line: int) -> typing.NoReturn:
     raise HaxCompileError(message, (filename, line, None, source))
 
 
-def _instructions_with_lines(
-    code: types.CodeType
-) -> typing.Iterator[typing.Tuple[dis.Instruction, int]]:
+def _instructions_with_lines(code: CodeType) -> Iterator[Tuple[Instruction, int]]:
     line = code.co_firstlineno
-    for instruction in dis.get_instructions(code):
+    for instruction in get_instructions(code):
         line = instruction.starts_line or line
         yield instruction, line
 
@@ -79,11 +103,11 @@ def _backfill(
     arg: int,
     start: int,
     line: int,
-    following: dis.Instruction,
+    following: Instruction,
     min_size: int,
     new_op: int,
     filename: str,
-) -> typing.Iterator[int]:
+) -> Iterator[int]:
 
     assert min_size in {2, 4, 6, 8}, "Invalid min_size!"
 
@@ -122,9 +146,9 @@ def _backfill(
 
 def hax(target: _F) -> _F:
 
-    if isinstance(target, types.FunctionType):
+    if isinstance(target, FunctionType):
 
-        new = types.FunctionType(
+        new = FunctionType(
             _hax(target.__code__),
             target.__globals__,
             target.__name__,
@@ -148,19 +172,19 @@ def hax(target: _F) -> _F:
     return new  # type: ignore
 
 
-def _hax(bytecode: types.CodeType) -> types.CodeType:
+def _hax(bytecode: CodeType) -> CodeType:
 
     ops = _instructions_with_lines(bytecode)
 
-    code: typing.List[int] = []
+    code: List[int] = []
     last_line = bytecode.co_firstlineno
-    lnotab: typing.List[int] = []
-    consts: typing.List[object] = [bytecode.co_consts[0]]
-    names: typing.Dict[str, int] = {}
+    lnotab: List[int] = []
+    consts: List[object] = [bytecode.co_consts[0]]
+    names: Dict[str, int] = {}
     stacksize = 0
-    jumps: typing.Dict[int, typing.List[typing.Dict[str, typing.Any]]] = {}
-    deferred: typing.Dict[int, int] = {}
-    varnames: typing.Dict[str, int] = {
+    jumps: Dict[int, List[Dict[str, Any]]] = {}
+    deferred: Dict[int, int] = {}
+    varnames: Dict[str, int] = {
         name: index
         for index, name in enumerate(
             bytecode.co_varnames[
@@ -171,14 +195,12 @@ def _hax(bytecode: types.CodeType) -> types.CodeType:
         )
     }
 
-    labels: typing.Dict[typing.Hashable, int] = {}
-    deferred_labels: typing.Dict[
-        typing.Hashable, typing.List[typing.Dict[str, typing.Any]]
-    ] = {}
+    labels: Dict[Hashable, int] = {}
+    deferred_labels: Dict[Hashable, List[Dict[str, Any]]] = {}
 
     while True:
 
-        extended: typing.List[int] = []
+        extended: List[int] = []
 
         for op, line in ops:
 
@@ -192,8 +214,8 @@ def _hax(bytecode: types.CodeType) -> types.CodeType:
                     )
                     assert len(code) == offset, "Code changed size!"
 
-            if op.opcode < dis.HAVE_ARGUMENT:
-                stacksize += max(0, dis.stack_effect(op.opcode))
+            if op.opcode < HAVE_ARGUMENT:
+                stacksize += max(0, stack_effect(op.opcode))
                 lnotab += 1, line - last_line
                 code += op.opcode, 0
                 last_line = line
@@ -208,7 +230,7 @@ def _hax(bytecode: types.CodeType) -> types.CodeType:
         else:
             break
 
-        if op.argval not in dis.opmap and op.argval != "LABEL":
+        if op.argval not in opmap and op.argval != "LABEL":
 
             info = dict(
                 arg=op.argval or 0,
@@ -242,8 +264,8 @@ def _hax(bytecode: types.CodeType) -> types.CodeType:
 
             stacksize += max(
                 0,
-                dis.stack_effect(
-                    op.opcode, info["arg"] if dis.HAVE_ARGUMENT <= op.opcode else None
+                stack_effect(
+                    op.opcode, info["arg"] if HAVE_ARGUMENT <= op.opcode else None
                 ),
             )
             new_code = [*_backfill(**info)]
@@ -302,9 +324,9 @@ def _hax(bytecode: types.CodeType) -> types.CodeType:
             last_line = line
             continue
 
-        new_op = dis.opmap[op.argval]
+        new_op = opmap[op.argval]
 
-        has_arg = dis.HAVE_ARGUMENT <= new_op
+        has_arg = HAVE_ARGUMENT <= new_op
 
         if args != has_arg:
             message = (
@@ -343,9 +365,9 @@ def _hax(bytecode: types.CodeType) -> types.CodeType:
                 message = f"Expected a string (got {arg!r})."
                 _raise_hax_error(message, bytecode.co_filename, line)
             try:
-                info["arg"] = dis.cmp_op.index(arg)
+                info["arg"] = cmp_op.index(arg)
             except ValueError:
-                message = f"Bad comparision operator {arg!r}; expected one of {' / '.join(map(repr, dis.cmp_op))}!"
+                message = f"Bad comparision operator {arg!r}; expected one of {' / '.join(map(repr, cmp_op))}!"
                 _raise_hax_error(message, bytecode.co_filename, line)
         elif new_op in _HASFREE:
             if not isinstance(arg, str):
@@ -384,7 +406,7 @@ def _hax(bytecode: types.CodeType) -> types.CodeType:
             message = f"Expected integer argument, got {arg!r}."
             _raise_hax_error(message, bytecode.co_filename, line)
 
-        stacksize += max(0, dis.stack_effect(new_op, info["arg"] if has_arg else None))
+        stacksize += max(0, stack_effect(new_op, info["arg"] if has_arg else None))
         new_code = [*_backfill(**info)]
         lnotab += 1, line - last_line, len(new_code) - 1, 0
         code += new_code
@@ -401,7 +423,7 @@ def _hax(bytecode: types.CodeType) -> types.CodeType:
         else ()
     )
 
-    return types.CodeType(  # type: ignore
+    return CodeType(  # type: ignore
         bytecode.co_argcount,
         *maybe_posonlyargcount,
         bytecode.co_kwonlyargcount,
@@ -421,7 +443,7 @@ def _hax(bytecode: types.CodeType) -> types.CodeType:
     )
 
 
-def LABEL(arg: typing.Hashable) -> None:
+def LABEL(arg: Hashable) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
@@ -429,7 +451,7 @@ def BEFORE_ASYNC_WITH() -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-if (3, 8) <= sys.version_info:
+if (3, 8) <= version_info:
 
     def BEGIN_FINALLY() -> None:
         raise HaxUsageError(_USAGE_MESSAGE)
@@ -491,7 +513,7 @@ def BINARY_XOR() -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-if sys.version_info < (3, 8):
+if version_info < (3, 8):
 
     def BREAK_LOOP() -> None:
         raise HaxUsageError(_USAGE_MESSAGE)
@@ -549,9 +571,9 @@ def BUILD_TUPLE_UNPACK_WITH_CALL(arg: int) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-if (3, 8) <= sys.version_info:
+if (3, 8) <= version_info:
 
-    def CALL_FINALLY(arg: typing.Hashable) -> None:
+    def CALL_FINALLY(arg: Hashable) -> None:
         raise HaxUsageError(_USAGE_MESSAGE)
 
 
@@ -567,7 +589,7 @@ def CALL_FUNCTION_KW(arg: int) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-if (3, 7) <= sys.version_info:
+if (3, 7) <= version_info:
 
     def CALL_METHOD(arg: int) -> None:
         raise HaxUsageError(_USAGE_MESSAGE)
@@ -577,9 +599,9 @@ def COMPARE_OP(arg: str) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-if sys.version_info < (3, 8):
+if version_info < (3, 8):
 
-    def CONTINUE_LOOP(arg: typing.Hashable) -> None:
+    def CONTINUE_LOOP(arg: Hashable) -> None:
         raise HaxUsageError(_USAGE_MESSAGE)
 
 
@@ -615,7 +637,7 @@ def DUP_TOP_TWO() -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-if (3, 8) <= sys.version_info:
+if (3, 8) <= version_info:
 
     def END_ASYNC_FOR() -> None:
         raise HaxUsageError(_USAGE_MESSAGE)
@@ -633,7 +655,7 @@ def FORMAT_VALUE(arg: int) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-def FOR_ITER(arg: typing.Hashable) -> None:
+def FOR_ITER(arg: Hashable) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
@@ -721,19 +743,19 @@ def INPLACE_XOR() -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-def JUMP_ABSOLUTE(arg: typing.Hashable) -> None:
+def JUMP_ABSOLUTE(arg: Hashable) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-def JUMP_FORWARD(arg: typing.Hashable) -> None:
+def JUMP_FORWARD(arg: Hashable) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-def JUMP_IF_FALSE_OR_POP(arg: typing.Hashable) -> None:
+def JUMP_IF_FALSE_OR_POP(arg: Hashable) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-def JUMP_IF_TRUE_OR_POP(arg: typing.Hashable) -> None:
+def JUMP_IF_TRUE_OR_POP(arg: Hashable) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
@@ -741,7 +763,7 @@ def LIST_APPEND(arg: int) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-if (3, 9) <= sys.version_info:
+if (3, 9) <= version_info:
 
     def LOAD_ASSERTION_ERROR() -> None:
         raise HaxUsageError(_USAGE_MESSAGE)
@@ -763,7 +785,7 @@ def LOAD_CLOSURE(arg: str) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-def LOAD_CONST(arg: typing.Hashable) -> None:
+def LOAD_CONST(arg: Hashable) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
@@ -779,7 +801,7 @@ def LOAD_GLOBAL(arg: str) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-if (3, 7) <= sys.version_info:
+if (3, 7) <= version_info:
 
     def LOAD_METHOD(arg: str) -> None:
         raise HaxUsageError(_USAGE_MESSAGE)
@@ -809,17 +831,17 @@ def POP_EXCEPT() -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-if (3, 8) <= sys.version_info:
+if (3, 8) <= version_info:
 
     def POP_FINALLY(arg: bool) -> None:
         raise HaxUsageError(_USAGE_MESSAGE)
 
 
-def POP_JUMP_IF_FALSE(arg: typing.Hashable) -> None:
+def POP_JUMP_IF_FALSE(arg: Hashable) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-def POP_JUMP_IF_TRUE(arg: typing.Hashable) -> None:
+def POP_JUMP_IF_TRUE(arg: Hashable) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
@@ -839,7 +861,7 @@ def RETURN_VALUE() -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-if (3, 8) <= sys.version_info:
+if (3, 8) <= version_info:
 
     def ROT_FOUR() -> None:
         raise HaxUsageError(_USAGE_MESSAGE)
@@ -857,27 +879,27 @@ def SETUP_ANNOTATIONS() -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-def SETUP_ASYNC_WITH(arg: typing.Hashable) -> None:
+def SETUP_ASYNC_WITH(arg: Hashable) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-if sys.version_info < (3, 8):
+if version_info < (3, 8):
 
-    def SETUP_EXCEPT(arg: typing.Hashable) -> None:
+    def SETUP_EXCEPT(arg: Hashable) -> None:
         raise HaxUsageError(_USAGE_MESSAGE)
 
 
-def SETUP_FINALLY(arg: typing.Hashable) -> None:
+def SETUP_FINALLY(arg: Hashable) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-if sys.version_info < (3, 8):
+if version_info < (3, 8):
 
-    def SETUP_LOOP(arg: typing.Hashable) -> None:
+    def SETUP_LOOP(arg: Hashable) -> None:
         raise HaxUsageError(_USAGE_MESSAGE)
 
 
-def SETUP_WITH(arg: typing.Hashable) -> None:
+def SETUP_WITH(arg: Hashable) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
@@ -889,7 +911,7 @@ def STORE_ATTR(arg: str) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-if sys.version_info < (3, 7):
+if version_info < (3, 7):
 
     def STORE_ANNOTATION(arg: str) -> None:
         raise HaxUsageError(_USAGE_MESSAGE)
