@@ -23,13 +23,21 @@ def get_stdlib_functions() -> List[FunctionType]:
     _, packages, modules = next(walk(get_python_lib(standard_lib=True)))
 
     for package in packages:
-        if package.isidentifier():
+        if not package.isidentifier():
+            continue
+        try:
             stdlib.append(import_module(package))
+        except ImportError:
+            pass
 
     for name, extension in map(splitext, modules):  # type: ignore
         assert isinstance(name, str)
-        if extension == ".py" and name.isidentifier() and name != "antigravity":
+        if extension != ".py" or not name.isidentifier() or name == "antigravity":
+            continue
+        try:
             stdlib.append(import_module(name))
+        except ImportError:
+            pass
 
     return list(
         {
@@ -140,7 +148,7 @@ def test_stdlib(test: Any) -> None:
 
 
 def test_opcodes() -> None:
-    expected = {*opmap} ^ {
+    expected = {*opmap} - {
         "BEFORE_ASYNC_WITH",
         "BINARY_MATRIX_MULTIPLY",
         "BUILD_LIST_UNPACK",
