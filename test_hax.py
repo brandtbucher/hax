@@ -6,10 +6,11 @@ from itertools import chain
 from os import walk
 from os.path import splitext
 from re import findall
+from sys import maxsize
 from types import CodeType, FunctionType, LambdaType
 from typing import Any, Dict, Iterator, Sequence, List
 
-from hypothesis import given
+from hypothesis import HealthCheck, given, settings
 from hypothesis.strategies import builds, lists
 from pytest import mark, param, raises
 
@@ -73,7 +74,8 @@ def get_examples() -> Iterator[str]:
 
 
 @mark.parametrize("code", get_examples())  # type: ignore
-@given(items=lists(builds(object)))
+@settings(suppress_health_check=[HealthCheck.too_slow])
+@given(items=lists(builds(object), max_size=maxsize // 2))
 def test_readme(code: str, items: Sequence[object]) -> None:
 
     namespace: Dict[str, Any] = {"__name__": "__main__"}
