@@ -86,6 +86,13 @@ matrix:
       python: 3.8
       script: mypy
     
+    - name: Pylint
+      language: python
+      os: linux
+      dist: xenial
+      python: 3.8
+      script: pylint hax setup test_hax
+    
     - name: Black
       language: python
       os: linux

@@ -1,0 +1,15 @@
+[pylint]
+
+disable =
+    bad-continuation,  # Black does this.
+    invalid-name,  # Need this for ops.
+    line-too-long,  # Black does this.
+    misplaced-comparison-constant,  # I don't agree.
+    missing-class-docstring,  # TODO
+    missing-function-docstring,  # TODO
+    missing-module-docstring,  # TODO
+    too-many-branches,  # TODO
+    too-many-locals,  # TODO
+    too-many-statements,  # TODO
+    undefined-loop-variable,  # Tons of false-positives with "for-else-break".
+    wrong-import-position,  # TODO
