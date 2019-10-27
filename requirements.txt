@@ -2,5 +2,6 @@ attrs >= 19.2.0
 black
 hypothesis
 mypy
+pylint
 pytest >= 4.4.0
 pytest-cov
