@@ -112,8 +112,8 @@ def _backfill(
         )
 
     if arg < 0:
-
         _error(f"Args less than 0 aren't supported (got {arg:,})!", filename, line)
+
     if 1 << 24 <= arg:
         yield _EXTENDED_ARG
         yield arg >> 24 & 255
@@ -402,8 +402,8 @@ def _hax(bytecode: CodeType) -> CodeType:
             _error(
                 f"Expected integer argument, got {arg!r}.", bytecode.co_filename, line
             )
-
-        stacksize += max(0, stack_effect(new_op, info["arg"] if has_arg else None))
+        if new_op != _EXTENDED_ARG:
+            stacksize += max(0, stack_effect(new_op, info["arg"] if has_arg else None))
         new_code = [*_backfill(**info)]
         lnotab += 1, line - last_line, len(new_code) - 1, 0
         code += new_code
@@ -425,7 +425,7 @@ def _hax(bytecode: CodeType) -> CodeType:
         *maybe_posonlyargcount,
         bytecode.co_kwonlyargcount,
         len(varnames),
-        stacksize,  # TODO: Fix this up?
+        stacksize,
         bytecode.co_flags,
         bytes(code),
         tuple(consts),
@@ -434,7 +434,7 @@ def _hax(bytecode: CodeType) -> CodeType:
         bytecode.co_filename,
         bytecode.co_name,
         bytecode.co_firstlineno,
-        bytes(lnotab),  # TODO: Fix this up!
+        bytes(lnotab),
         bytecode.co_freevars,
         bytecode.co_cellvars,
     )
