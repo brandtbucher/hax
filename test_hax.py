@@ -74,7 +74,7 @@ def get_examples() -> Iterator[str]:
 
 
 @mark.parametrize("code", get_examples())  # type: ignore
-@settings(suppress_health_check=[HealthCheck.too_slow])
+@settings(suppress_health_check=[HealthCheck.too_slow])  # type: ignore
 @given(items=lists(builds(object), max_size=maxsize // 2))
 def test_readme(code: str, items: Sequence[object]) -> None:
 
