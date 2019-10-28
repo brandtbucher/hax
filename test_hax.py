@@ -6,13 +6,13 @@ from itertools import chain
 from os import walk
 from os.path import splitext
 from re import findall
-from sys import maxsize
-from types import CodeType, FunctionType, LambdaType
+from sys import maxsize, version_info
+from types import CodeType, FunctionType
 from typing import Any, Dict, Iterator, Sequence, List
 
 from hypothesis import HealthCheck, given, settings
 from hypothesis.strategies import builds, lists
-from pytest import mark, param, raises
+from pytest import mark, param, raises, skip
 
 import hax
 
@@ -110,7 +110,12 @@ tested = set()
     ids=lambda test: f"{test.__module__}.{test.__qualname__}",
 )
 def test_stdlib(test: Any) -> None:
-    name = test.__name__ if not isinstance(test, LambdaType) else "_lambda"
+    name = test.__name__ if test.__name__.isidentifier() else "_"
+    if (
+        f"{test.__module__}.{test.__qualname__}" == "mimetypes._default_mime_types"
+        and version_info < (3, 7)
+    ):
+        skip()
     definition = f"@hax\ndef {name}({', '.join(signature(test, follow_wrapped=False).parameters)}):\n"
     if test.__code__.co_freevars:
         definition = f"def _wrapper():\n  {' = '.join(test.__code__.co_freevars)} = ...\n  @hax\n  def {name}({', '.join(signature(test, follow_wrapped=False).parameters)}):\n    nonlocal {', '.join(test.__code__.co_freevars)}\n"
