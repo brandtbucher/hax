@@ -123,6 +123,8 @@ def _hax(bytecode: CodeType) -> CodeType:
 
     ops = instructions_with_lines(bytecode)
 
+    used = False
+
     code: List[int] = []
     last_line = bytecode.co_firstlineno
     lnotab: List[int] = []
@@ -220,6 +222,8 @@ def _hax(bytecode: CodeType) -> CodeType:
             code += new_code
             last_line = line
             continue
+
+        used = True
 
         if op.opname not in {"LOAD_FAST", "LOAD_GLOBAL", "LOAD_NAME"}:
             raise HaxCompileError(
@@ -384,6 +388,9 @@ def _hax(bytecode: CodeType) -> CodeType:
         lnotab += 1, line - last_line, len(new_code) - 1, 0
         code += new_code
         last_line = line
+
+    if not used:
+        return bytecode
 
     if deferred_labels:
         raise HaxCompileError(
