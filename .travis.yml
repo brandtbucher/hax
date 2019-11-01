@@ -91,7 +91,7 @@ matrix:
       os: linux
       dist: xenial
       python: 3.8
-      script: pylint hax setup test_hax
+      script: pylint hax setup
     
     - name: Black
       language: python

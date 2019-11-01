@@ -1,20 +1,23 @@
 from dis import HAVE_ARGUMENT, get_instructions, hasjabs, hasjrel, opmap
 from distutils.sysconfig import get_python_lib
 from inspect import signature
-from importlib import import_module
+from importlib import import_module, reload
 from itertools import chain
 from os import walk
 from os.path import splitext
 from re import findall
 from sys import maxsize, version_info
 from types import CodeType, FunctionType
-from typing import Any, Dict, Iterator, Sequence, List
+from typing import Any, Dict, Iterator, Sequence, List, Tuple
+from unittest.mock import patch
+from warnings import catch_warnings, simplefilter
 
 from hypothesis import HealthCheck, given, settings
 from hypothesis.strategies import builds, lists
 from pytest import mark, param, raises, skip
 
 import hax
+from hax import _checks, EXTENDED_ARG, HaxUsageError, HaxCompileError, NOP
 
 
 def get_stdlib_functions() -> List[FunctionType]:
@@ -27,7 +30,9 @@ def get_stdlib_functions() -> List[FunctionType]:
         if not package.isidentifier():
             continue
         try:
-            stdlib.append(import_module(package))
+            with catch_warnings():
+                simplefilter("ignore")
+                stdlib.append(import_module(package))
         except ImportError:
             pass
 
@@ -36,12 +41,14 @@ def get_stdlib_functions() -> List[FunctionType]:
         if extension != ".py" or not name.isidentifier() or name == "antigravity":
             continue
         try:
-            stdlib.append(import_module(name))
+            with catch_warnings():
+                simplefilter("ignore")
+                stdlib.append(import_module(name))
         except ImportError:
             pass
 
-    return list(
-        {
+    return [
+        *{
             function.__code__: function
             for name, function in sorted(
                 {
@@ -61,7 +68,7 @@ def get_stdlib_functions() -> List[FunctionType]:
                 }.items()
             )
         }.values()
-    )
+    ]
 
 
 def get_examples() -> Iterator[str]:
@@ -73,8 +80,8 @@ def get_examples() -> Iterator[str]:
         yield param(example, id=f"{i}")
 
 
-@mark.parametrize("code", get_examples())  # type: ignore
-@settings(suppress_health_check=[HealthCheck.too_slow])  # type: ignore
+@mark.parametrize("code", get_examples())
+@settings(suppress_health_check=[HealthCheck.too_slow])
 @given(items=lists(builds(object), max_size=maxsize // 2))
 def test_readme(code: str, items: Sequence[object]) -> None:
 
@@ -87,24 +94,21 @@ def test_readme(code: str, items: Sequence[object]) -> None:
     assert actual == expected
 
 
-@mark.parametrize("opname, opcode", opmap.items())  # type: ignore
+@mark.parametrize("opname, opcode", opmap.items())
 def test_opcode(opname: str, opcode: int) -> None:
 
     arg = HAVE_ARGUMENT <= opcode
 
     assert hasattr(hax, opname)
 
-    with raises(hax.HaxUsageError if arg else TypeError):
+    with raises(HaxUsageError if arg else TypeError):
         getattr(hax, opname)(...)
 
-    with raises(TypeError if arg else hax.HaxUsageError):
+    with raises(TypeError if arg else HaxUsageError):
         getattr(hax, opname)()
 
 
-tested = set()
-
-
-@mark.parametrize(  # type: ignore
+@mark.parametrize(
     "test",
     get_stdlib_functions(),
     ids=lambda test: f"{test.__module__}.{test.__qualname__}",
@@ -118,7 +122,7 @@ def test_stdlib(test: Any) -> None:
         skip()
     definition = f"@hax\ndef {name}({', '.join(signature(test, follow_wrapped=False).parameters)}):\n"
     if test.__code__.co_freevars:
-        definition = f"def _wrapper():\n  {' = '.join(test.__code__.co_freevars)} = ...\n  @hax\n  def {name}({', '.join(signature(test, follow_wrapped=False).parameters)}):\n    nonlocal {', '.join(test.__code__.co_freevars)}\n"
+        definition = f"def __():\n  {' = '.join(test.__code__.co_freevars)} = ...\n  @hax\n  def {name}({', '.join(signature(test, follow_wrapped=False).parameters)}):\n    nonlocal {', '.join(test.__code__.co_freevars)}\n"
     ops = [
         op for op in get_instructions(test) if op.opname not in {"NOP", "EXTENDED_ARG"}
     ]
@@ -135,7 +139,7 @@ def test_stdlib(test: Any) -> None:
             definition += f"    LABEL({op.offset})\n"
         definition += f"    {op.opname}({arg})\n"
     if test.__code__.co_freevars:
-        definition += f"  return {name}\n{name} = _wrapper()"
+        definition += f"  return {name}\n{name} = __()"
     namespace: Dict[str, Any] = {"hax": hax.hax}
     print(definition)
     exec(definition, namespace)  # pylint: disable = exec-used
@@ -145,44 +149,119 @@ def test_stdlib(test: Any) -> None:
     ][
         :-2
     ]  # Last two are LOAD_CONST(None); RETURN_VALUE()
+    # assert test.__code__.co_argcount == copy.__code__.co_argcount
+    assert test.__code__.co_cellvars == copy.__code__.co_cellvars
+    assert test.__code__.co_freevars == copy.__code__.co_freevars
+    # assert test.__code__.co_kwonlyargcount == copy.__code__.co_kwonlyargcount
+    assert test.__code__.co_nlocals == test.__code__.co_nlocals
+    assert test.__code__.co_stacksize <= copy.__code__.co_stacksize
+    assert {*test.__code__.co_varnames} <= {*copy.__code__.co_varnames}
     assert len(ops) == len(copy_ops)
     for op, copy_op in zip(ops, copy_ops):
         assert op.opname == copy_op.opname, (op, copy_op)
         if op.opcode not in {*hasjabs, *hasjrel}:
             assert op.argval == copy_op.argval, (op, copy_op)
 
-        tested.add(op.opname)
+
+@mark.parametrize(
+    "version",
+    [
+        (3, 5, 0, "final", 0),
+        (3, 6, 0, "final", 0),
+        (3, 7, 0, "final", 0),
+        (3, 8, 0, "final", 0),
+        (3, 9, 0, "final", 0),
+    ],
+)
+def test_version(version: Tuple[int, int, int, str, int]) -> None:
+
+    with patch("sys.version_info", version):
+
+        if version < (3, 6):
+            with raises(RuntimeError):
+                reload(_checks)
+        else:
+            reload(_checks)
 
 
-# def test_opcodes() -> None:
-#     expected = {*opmap} - {
-#         "BEFORE_ASYNC_WITH",
-#         "BINARY_MATRIX_MULTIPLY",
-#         "BUILD_LIST_UNPACK",
-#         "BUILD_MAP_UNPACK",
-#         "BUILD_SET_UNPACK",
-#         "BUILD_TUPLE_UNPACK",
-#         "DELETE_DEREF",
-#         "DELETE_NAME",
-#         "EXTENDED_ARG",
-#         "GET_AITER",
-#         "GET_ANEXT",
-#         "IMPORT_STAR",
-#         "INPLACE_MATRIX_MULTIPLY",
-#         "INPLACE_POWER",
-#         "LIST_APPEND",
-#         "LOAD_BUILD_CLASS",
-#         "LOAD_CLASSDEREF",
-#         "LOAD_CLOSURE",
-#         "LOAD_NAME",
-#         "MAKE_FUNCTION",
-#         "MAP_ADD",
-#         "NOP",
-#         "PRINT_EXPR",
-#         "SET_ADD",
-#         "SETUP_ANNOTATIONS",
-#         "SETUP_ASYNC_WITH",
-#         "STORE_DEREF",
-#         "STORE_NAME",
-#     }
-#     assert tested == expected
+def test_implementation_cpython() -> None:
+
+    with patch("sys.implementation.name", "cpython"):
+        reload(_checks)
+
+
+def test_implementation_other() -> None:
+
+    with patch("sys.implementation.name", "pypy"):
+        with raises(RuntimeError):
+            reload(_checks)
+
+
+def test_bad_arg_negative() -> None:
+    with raises(HaxCompileError):
+
+        @hax.hax
+        def _() -> None:
+            EXTENDED_ARG(-1)
+
+
+def test_bad_arg_large() -> None:
+    with raises(HaxCompileError):
+
+        @hax.hax
+        def _() -> None:
+            EXTENDED_ARG(1 << 32)
+
+
+def test_okay_args() -> None:
+    @hax.hax
+    def _() -> None:
+        EXTENDED_ARG((1 << 32) - 1)
+        EXTENDED_ARG((1 << 24) - 1)
+        EXTENDED_ARG((1 << 16) - 1)
+        EXTENDED_ARG((1 << 8) - 1)
+
+
+def test_bad_type() -> None:
+    with raises(TypeError):
+        hax.hax(object())
+
+
+def test_bad_usage_no_call() -> None:
+    with raises(HaxCompileError):
+
+        @hax.hax
+        def _() -> None:
+            NOP  # pylint: disable = pointless-statement
+
+
+def test_bad_usage_non_simple() -> None:
+    with raises(HaxCompileError):
+
+        @hax.hax
+        def _() -> None:
+            EXTENDED_ARG(_)  # type: ignore  # pylint: disable = too-many-function-args
+
+
+def test_bad_usage_non_statement() -> None:
+    with raises(HaxCompileError):
+
+        @hax.hax
+        def _() -> None:
+            NOP(),  # type: ignore  # pylint: disable = expression-not-assigned
+
+
+def test_bad_usage_arg_when_none_expected() -> None:
+    with raises(HaxCompileError):
+
+        @hax.hax
+        def _() -> None:
+            NOP(...)  # type: ignore  # pylint: disable = too-many-function-args
+
+
+def test_bad_usage_none_when_expected() -> None:
+    with raises(HaxCompileError):
+
+        @hax.hax
+        def _() -> None:
+            EXTENDED_ARG()  # type: ignore  # pylint: disable = no-value-for-parameter

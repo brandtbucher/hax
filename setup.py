@@ -16,7 +16,7 @@ setup(
     long_description=_LONG_DESCRIPTION,
     long_description_content_type="text/markdown",
     name="hax",
-    py_modules=["hax"],
+    packages=["hax"],
     url="https://github.com/brandtbucher/hax",
     version=version,
 )
