@@ -337,7 +337,7 @@ def _hax(bytecode: CodeType) -> CodeType:
                 raise HaxCompileError(
                     f"Bad comparision operator {arg!r}; expected one of {' / '.join(map(repr, cmp_op))}!",
                     (bytecode.co_filename, line, None, None),
-                )
+                ) from None
         elif new_op in HASFREE:
             if not isinstance(arg, str):
                 raise HaxCompileError(
@@ -350,7 +350,7 @@ def _hax(bytecode: CodeType) -> CodeType:
                 raise HaxCompileError(
                     f'No free/cell variable {arg!r}; maybe use "nonlocal" in the inner scope to compile correctly?',
                     (bytecode.co_filename, line, None, None),
-                )
+                ) from None
         elif new_op in HASJUMP:
             if arg in labels:
                 if new_op in HASJREL:
@@ -398,14 +398,14 @@ def _hax(bytecode: CodeType) -> CodeType:
         )
 
     maybe_posonlyargcount = (
-        (bytecode.co_posonlyargcount,)  # type: ignore
+        (bytecode.co_posonlyargcount,)
         if hasattr(bytecode, "co_posonlyargcount")
         else ()
     )
 
     return CodeType(  # type: ignore
         bytecode.co_argcount,
-        *maybe_posonlyargcount,
+        *maybe_posonlyargcount,  # type: ignore
         bytecode.co_kwonlyargcount,
         len(varnames),
         stacksize,

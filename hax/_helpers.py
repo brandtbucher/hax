@@ -17,7 +17,7 @@ def BEFORE_ASYNC_WITH() -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-if (3, 8) <= _version_info:
+if (3, 8) <= _version_info:  # pragma: no cover
 
     def BEGIN_FINALLY() -> None:
         raise HaxUsageError(_USAGE_MESSAGE)
@@ -79,7 +79,7 @@ def BINARY_XOR() -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-if _version_info < (3, 8):
+if _version_info < (3, 8):  # pragma: no cover
 
     def BREAK_LOOP() -> None:
         raise HaxUsageError(_USAGE_MESSAGE)
@@ -137,7 +137,7 @@ def BUILD_TUPLE_UNPACK_WITH_CALL(arg: int) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-if (3, 8) <= _version_info:
+if (3, 8) <= _version_info:  # pragma: no cover
 
     def CALL_FINALLY(arg: _Hashable) -> None:
         raise HaxUsageError(_USAGE_MESSAGE)
@@ -155,7 +155,7 @@ def CALL_FUNCTION_KW(arg: int) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-if (3, 7) <= _version_info:
+if (3, 7) <= _version_info:  # pragma: no cover
 
     def CALL_METHOD(arg: int) -> None:
         raise HaxUsageError(_USAGE_MESSAGE)
@@ -165,7 +165,13 @@ def COMPARE_OP(arg: str) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-if _version_info < (3, 8):
+if (3, 9) <= _version_info:  # pragma: no cover
+
+    def CONTAINS_OP(invert: bool) -> None:
+        raise HaxUsageError(_USAGE_MESSAGE)
+
+
+if _version_info < (3, 8):  # pragma: no cover
 
     def CONTINUE_LOOP(arg: _Hashable) -> None:
         raise HaxUsageError(_USAGE_MESSAGE)
@@ -195,6 +201,15 @@ def DELETE_SUBSCR() -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
+if (3, 9) <= _version_info:  # pragma: no cover
+
+    def DICT_MERGE(arg: int) -> None:
+        raise HaxUsageError(_USAGE_MESSAGE)
+
+    def DICT_UPDATE(arg: int) -> None:
+        raise HaxUsageError(_USAGE_MESSAGE)
+
+
 def DUP_TOP() -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
@@ -203,7 +218,7 @@ def DUP_TOP_TWO() -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-if (3, 8) <= _version_info:
+if (3, 8) <= _version_info:  # pragma: no cover
 
     def END_ASYNC_FOR() -> None:
         raise HaxUsageError(_USAGE_MESSAGE)
@@ -309,6 +324,12 @@ def INPLACE_XOR() -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
+if (3, 9) <= _version_info:  # pragma: no cover
+
+    def IS_OP(invert: bool) -> None:
+        raise HaxUsageError(_USAGE_MESSAGE)
+
+
 def JUMP_ABSOLUTE(arg: _Hashable) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
@@ -321,6 +342,12 @@ def JUMP_IF_FALSE_OR_POP(arg: _Hashable) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
+if _version_info < (3, 8):  # pragma: no cover
+
+    def JUMP_IF_NOT_EXC_MATCH(arg: _Hashable) -> None:
+        raise HaxUsageError(_USAGE_MESSAGE)
+
+
 def JUMP_IF_TRUE_OR_POP(arg: _Hashable) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
@@ -329,7 +356,13 @@ def LIST_APPEND(arg: int) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-if (3, 9) <= _version_info:
+if (3, 9) <= _version_info:  # pragma: no cover
+
+    def LIST_EXTEND(arg: int) -> None:
+        raise HaxUsageError(_USAGE_MESSAGE)
+
+    def LIST_TO_TUPLE() -> None:
+        raise HaxUsageError(_USAGE_MESSAGE)
 
     def LOAD_ASSERTION_ERROR() -> None:
         raise HaxUsageError(_USAGE_MESSAGE)
@@ -367,7 +400,7 @@ def LOAD_GLOBAL(arg: str) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-if (3, 7) <= _version_info:
+if (3, 7) <= _version_info:  # pragma: no cover
 
     def LOAD_METHOD(arg: str) -> None:
         raise HaxUsageError(_USAGE_MESSAGE)
@@ -397,7 +430,7 @@ def POP_EXCEPT() -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-if (3, 8) <= _version_info:
+if (3, 8) <= _version_info:  # pragma: no cover
 
     def POP_FINALLY(arg: bool) -> None:
         raise HaxUsageError(_USAGE_MESSAGE)
@@ -423,11 +456,17 @@ def RAISE_VARARGS(arg: int) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
+if (3, 9) <= _version_info:  # pragma: no cover
+
+    def RERAISE() -> None:
+        raise HaxUsageError(_USAGE_MESSAGE)
+
+
 def RETURN_VALUE() -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-if (3, 8) <= _version_info:
+if (3, 8) <= _version_info:  # pragma: no cover
 
     def ROT_FOUR() -> None:
         raise HaxUsageError(_USAGE_MESSAGE)
@@ -441,6 +480,12 @@ def ROT_TWO() -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
+if (3, 9) <= _version_info:  # pragma: no cover
+
+    def SET_UPDATE(arg: int) -> None:
+        raise HaxUsageError(_USAGE_MESSAGE)
+
+
 def SETUP_ANNOTATIONS() -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
@@ -449,7 +494,7 @@ def SETUP_ASYNC_WITH(arg: _Hashable) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-if _version_info < (3, 8):
+if _version_info < (3, 8):  # pragma: no cover
 
     def SETUP_EXCEPT(arg: _Hashable) -> None:
         raise HaxUsageError(_USAGE_MESSAGE)
@@ -459,7 +504,7 @@ def SETUP_FINALLY(arg: _Hashable) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-if _version_info < (3, 8):
+if _version_info < (3, 8):  # pragma: no cover
 
     def SETUP_LOOP(arg: _Hashable) -> None:
         raise HaxUsageError(_USAGE_MESSAGE)
@@ -477,7 +522,7 @@ def STORE_ATTR(arg: str) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-if _version_info < (3, 7):
+if _version_info < (3, 7):  # pragma: no cover
 
     def STORE_ANNOTATION(arg: str) -> None:
         raise HaxUsageError(_USAGE_MESSAGE)
@@ -533,6 +578,12 @@ def WITH_CLEANUP_FINISH() -> None:
 
 def WITH_CLEANUP_START() -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
+
+
+if (3, 9) <= _version_info:  # pragma: no cover
+
+    def WITH_EXCEPT_START() -> None:
+        raise HaxUsageError(_USAGE_MESSAGE)
 
 
 def YIELD_FROM() -> None:

@@ -1,7 +1,8 @@
-attrs >= 19.2.0
+--requirement requirements-pre.txt
 black
 hypothesis
 mypy
 pylint
-pytest >= 4.4.0
+pytest
 pytest-cov
+pytest-xdist

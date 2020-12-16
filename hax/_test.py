@@ -56,7 +56,7 @@ def get_stdlib_functions() -> List[FunctionType]:
                     for module in stdlib
                     for attribute in vars(module).values()
                     for function in (
-                        vars(attribute).values()  # type: ignore
+                        vars(attribute).values()
                         if isinstance(attribute, type)
                         else (attribute,)
                     )
@@ -71,7 +71,7 @@ def get_stdlib_functions() -> List[FunctionType]:
     ]
 
 
-def get_examples() -> Iterator[str]:
+def get_examples() -> Iterator[object]:
 
     with open("README.md") as readme:
         examples = findall(r"\n```py(\n[^`]+\n)```\n", readme.read())
@@ -106,6 +106,15 @@ def test_opcode(opname: str, opcode: int) -> None:
 
     with raises(TypeError if arg else HaxUsageError):
         getattr(hax, opname)()
+
+
+def test_label() -> None:
+
+    with raises(HaxUsageError):
+        hax.LABEL(...)
+
+    with raises(TypeError):
+        hax.LABEL()  # type: ignore  # pylint: disable = no-value-for-parameter
 
 
 @mark.parametrize(
