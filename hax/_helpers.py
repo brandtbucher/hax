@@ -342,7 +342,7 @@ def JUMP_IF_FALSE_OR_POP(arg: _Hashable) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-if _version_info < (3, 8):  # pragma: no cover
+if (3, 9) <= _version_info:  # pragma: no cover
 
     def JUMP_IF_NOT_EXC_MATCH(arg: _Hashable) -> None:
         raise HaxUsageError(_USAGE_MESSAGE)
