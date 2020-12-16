@@ -68,7 +68,8 @@ jobs:
         with:
           name: dist
           path: dist
-  name: Publish
+  publish:
+    name: Publish
     if: github.event_name == 'release' && github.event.action == 'published'
     needs: [setup]
     runs-on: ubuntu-latest
