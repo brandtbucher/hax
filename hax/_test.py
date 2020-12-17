@@ -117,6 +117,15 @@ def test_label() -> None:
         hax.LABEL()  # type: ignore  # pylint: disable = no-value-for-parameter
 
 
+def test_hax_label() -> None:
+
+    with raises(HaxUsageError):
+        hax.HAX_LABEL(...)
+
+    with raises(TypeError):
+        hax.HAX_LABEL()  # type: ignore  # pylint: disable = no-value-for-parameter
+
+
 @mark.parametrize(
     "test",
     get_stdlib_functions(),
@@ -145,7 +154,7 @@ def test_stdlib(test: Any) -> None:
         else:
             arg = ""
         if op.is_jump_target:
-            definition += f"    LABEL({op.offset})\n"
+            definition += f"    HAX_LABEL({op.offset})\n"
         definition += f"    {op.opname}({arg})\n"
     if test.__code__.co_freevars:
         definition += f"  return {name}\n{name} = __()"

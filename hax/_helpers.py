@@ -9,6 +9,10 @@ class HaxUsageError(RuntimeError):
     pass
 
 
+def HAX_LABEL(arg: _Hashable) -> None:
+    raise HaxUsageError(_USAGE_MESSAGE)
+
+
 def LABEL(arg: _Hashable) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
@@ -93,28 +97,33 @@ def BUILD_LIST(arg: int) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-def BUILD_LIST_UNPACK(arg: int) -> None:
-    raise HaxUsageError(_USAGE_MESSAGE)
+if _version_info < (3, 9):  # pragma: no cover
+
+    def BUILD_LIST_UNPACK(arg: int) -> None:
+        raise HaxUsageError(_USAGE_MESSAGE)
 
 
 def BUILD_MAP(arg: int) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-def BUILD_MAP_UNPACK(arg: int) -> None:
-    raise HaxUsageError(_USAGE_MESSAGE)
+if _version_info < (3, 9):  # pragma: no cover
 
+    def BUILD_MAP_UNPACK(arg: int) -> None:
+        raise HaxUsageError(_USAGE_MESSAGE)
 
-def BUILD_MAP_UNPACK_WITH_CALL(arg: int) -> None:
-    raise HaxUsageError(_USAGE_MESSAGE)
+    def BUILD_MAP_UNPACK_WITH_CALL(arg: int) -> None:
+        raise HaxUsageError(_USAGE_MESSAGE)
 
 
 def BUILD_SET(arg: int) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-def BUILD_SET_UNPACK(arg: int) -> None:
-    raise HaxUsageError(_USAGE_MESSAGE)
+if _version_info < (3, 9):  # pragma: no cover
+
+    def BUILD_SET_UNPACK(arg: int) -> None:
+        raise HaxUsageError(_USAGE_MESSAGE)
 
 
 def BUILD_SLICE(arg: int) -> None:
@@ -129,12 +138,13 @@ def BUILD_TUPLE(arg: int) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-def BUILD_TUPLE_UNPACK(arg: int) -> None:
-    raise HaxUsageError(_USAGE_MESSAGE)
+if _version_info < (3, 9):  # pragma: no cover
 
+    def BUILD_TUPLE_UNPACK(arg: int) -> None:
+        raise HaxUsageError(_USAGE_MESSAGE)
 
-def BUILD_TUPLE_UNPACK_WITH_CALL(arg: int) -> None:
-    raise HaxUsageError(_USAGE_MESSAGE)
+    def BUILD_TUPLE_UNPACK_WITH_CALL(arg: int) -> None:
+        raise HaxUsageError(_USAGE_MESSAGE)
 
 
 if (3, 8) <= _version_info:  # pragma: no cover
@@ -224,8 +234,10 @@ if (3, 8) <= _version_info:  # pragma: no cover
         raise HaxUsageError(_USAGE_MESSAGE)
 
 
-def END_FINALLY() -> None:
-    raise HaxUsageError(_USAGE_MESSAGE)
+if _version_info < (3, 9):  # pragma: no cover
+
+    def END_FINALLY() -> None:
+        raise HaxUsageError(_USAGE_MESSAGE)
 
 
 def EXTENDED_ARG(arg: int) -> None:
@@ -572,12 +584,13 @@ def UNPACK_SEQUENCE(arg: int) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-def WITH_CLEANUP_FINISH() -> None:
-    raise HaxUsageError(_USAGE_MESSAGE)
+if _version_info < (3, 9):  # pragma: no cover
 
+    def WITH_CLEANUP_FINISH() -> None:
+        raise HaxUsageError(_USAGE_MESSAGE)
 
-def WITH_CLEANUP_START() -> None:
-    raise HaxUsageError(_USAGE_MESSAGE)
+    def WITH_CLEANUP_START() -> None:
+        raise HaxUsageError(_USAGE_MESSAGE)
 
 
 if (3, 9) <= _version_info:  # pragma: no cover

@@ -78,7 +78,7 @@ def doubled(items):
 
     LOAD_FAST("items")
     GET_ITER()
-    LABEL("loop")
+    HAX_LABEL("loop")
     FOR_ITER("return")
 
     DUP_TOP()
@@ -86,7 +86,7 @@ def doubled(items):
     LIST_APPEND(2)
     JUMP_ABSOLUTE("loop")
 
-    LABEL("return")
+    HAX_LABEL("return")
     RETURN_VALUE()
 ```
 
