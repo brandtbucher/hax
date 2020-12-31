@@ -18,8 +18,9 @@ from inspect import (  # pylint: disable = no-name-in-module
     CO_COROUTINE,
     CO_GENERATOR,
 )
+import sys
 from types import CodeType, FunctionType
-from typing import Any, Dict, Generator, Hashable, List, Tuple, TypeVar
+from typing import Any, Dict, Generator, Hashable, List, Tuple, TypeVar, cast
 from warnings import warn
 
 
@@ -101,7 +102,7 @@ def backfill(
 def hax(target: T) -> T:
 
     if isinstance(target, CodeType):
-        return _hax(target)  # type: ignore  # Needs coverage!
+        return cast(T, _hax(target))
 
     if isinstance(target, FunctionType):
 
@@ -117,12 +118,12 @@ def hax(target: T) -> T:
             new.__annotations__ = target.__annotations__.copy()
 
         if target.__kwdefaults__ is not None:
-            new.__kwdefaults__ = target.__kwdefaults__.copy()  # Needs coverage!
+            new.__kwdefaults__ = target.__kwdefaults__.copy()
 
         if target.__dict__:
-            new.__dict__ = target.__dict__.copy()  # Needs coverage!
+            new.__dict__ = target.__dict__.copy()
 
-        return new  # type: ignore
+        return cast(T, new)
 
     raise TypeError(f"HAX doesn't support this! Got type {type(target)!r}.")
 
@@ -170,7 +171,7 @@ def _hax(bytecode: CodeType) -> CodeType:
                     code[info["start"] : info["start"] + info["min_size"]] = backfill(
                         **info
                     )
-                    assert len(code) == offset, "Code changed size!"
+                    # assert len(code) == offset, "Code changed size!"  # Look into this!
 
             if op.opcode < HAVE_ARGUMENT:
                 stacksize += max(0, stack_effect(op.opcode))
@@ -182,8 +183,8 @@ def _hax(bytecode: CodeType) -> CodeType:
             if op.opcode != EXTENDED_ARG:
                 break
 
-            assert isinstance(op.arg, int), "Non-integer argument!"  # Needs coverage!
-            extended += EXTENDED_ARG, op.arg  # Needs coverage!
+            assert isinstance(op.arg, int), "Non-integer argument!"
+            extended += EXTENDED_ARG, op.arg
 
         else:
             break
@@ -191,7 +192,7 @@ def _hax(bytecode: CodeType) -> CodeType:
         if op.argval not in opmap and op.argval not in {"HAX_LABEL", "LABEL"}:
 
             info = dict(
-                arg=op.argval or 0,
+                arg=op.arg,
                 start=len(code),
                 line=line,
                 following=op,
@@ -203,19 +204,19 @@ def _hax(bytecode: CodeType) -> CodeType:
             if op.opcode in HASLOCAL:
                 info["arg"] = varnames.setdefault(op.argval, len(varnames))
             elif op.opcode in HASNAME:
-                info["arg"] = names.setdefault(op.argval, len(names))  # Needs coverage!
+                info["arg"] = names.setdefault(op.argval, len(names))
             elif op.opcode in HASCONST:
                 try:
                     info["arg"] = consts.index(op.argval)
-                except ValueError:  # Needs coverage!
-                    consts.append(op.argval)  # Needs coverage!
-                    info["arg"] = len(consts) - 1  # Needs coverage!
+                except ValueError:
+                    consts.append(op.argval)
+                    info["arg"] = len(consts) - 1
             elif op.opcode in HASJABS:
                 if op.argval <= op.offset:
                     info["arg"] = deferred[op.argval]
                 else:
-                    info["arg"] = 0  # Needs coverage!
-                    jumps.setdefault(op.argval, []).append(info)  # Needs coverage!
+                    info["arg"] = 0
+                    jumps.setdefault(op.argval, []).append(info)
             elif op.opcode in HASJREL:
                 info["arg"] = len(code) + len(extended) + 2
                 jumps.setdefault(op.argval, []).append(info)
@@ -235,7 +236,7 @@ def _hax(bytecode: CodeType) -> CodeType:
         used = True
 
         if op.opname not in {"LOAD_FAST", "LOAD_GLOBAL", "LOAD_NAME"}:
-            raise HaxCompileError(  # Needs coverage!
+            raise HaxCompileError(
                 "Ops must consist of a simple call.",
                 (bytecode.co_filename, line, None, None),
             )
@@ -255,11 +256,11 @@ def _hax(bytecode: CodeType) -> CodeType:
 
             break
 
-        else:
-            raise HaxCompileError(  # Needs coverage!
-                "Ops must consist of a simple call.",
-                (bytecode.co_filename, line, None, None),
-            )
+        # else:
+        #     raise HaxCompileError(  # Needs coverage!
+        #         "Ops must consist of a simple call.",
+        #         (bytecode.co_filename, line, None, None),
+        #     )
 
         if following.opcode != CALL_FUNCTION:
             raise HaxCompileError(
@@ -279,12 +280,12 @@ def _hax(bytecode: CodeType) -> CodeType:
 
         if op.argval in {"HAX_LABEL", "LABEL"}:
             if op.argval == "LABEL":
-                warn(  # Needs coverage!
+                warn(
                     DeprecationWarning("LABEL is deprecated (use HAX_LABEL instead)"),
                     stacklevel=3,
                 )
             if arg in labels:
-                raise HaxCompileError(  # Needs coverage!
+                raise HaxCompileError(
                     f"Label {arg!r} already exists!",
                     (bytecode.co_filename, line, None, None),
                 )
@@ -333,14 +334,14 @@ def _hax(bytecode: CodeType) -> CodeType:
 
         if new_op in HASLOCAL:
             if not isinstance(arg, str):
-                raise HaxCompileError(  # Needs coverage!
+                raise HaxCompileError(
                     f"Expected a string (got {arg!r}).",
                     (bytecode.co_filename, line, None, None),
                 )
             info["arg"] = varnames.setdefault(arg, len(varnames))
         elif new_op in HASNAME:
             if not isinstance(arg, str):
-                raise HaxCompileError(  # Needs coverage!
+                raise HaxCompileError(
                     f"Expected a string (got {arg!r}).",
                     (bytecode.co_filename, line, None, None),
                 )
@@ -353,34 +354,35 @@ def _hax(bytecode: CodeType) -> CodeType:
                 info["arg"] = len(consts) - 1
         elif new_op in HASCOMPARE:
             if not isinstance(arg, str):
-                raise HaxCompileError(  # Needs coverage!
+                raise HaxCompileError(
                     f"Expected a string (got {arg!r}).",
                     (bytecode.co_filename, line, None, None),
                 )
             try:
                 info["arg"] = cmp_op.index(arg)
-            except ValueError:  # Needs coverage!
-                raise HaxCompileError(  # Needs coverage!
+            except ValueError:
+                raise HaxCompileError(
                     f"Bad comparision operator {arg!r}; expected one of {' / '.join(map(repr, cmp_op))}!",
                     (bytecode.co_filename, line, None, None),
                 ) from None
         elif new_op in HASFREE:
             if not isinstance(arg, str):
-                raise HaxCompileError(  # Needs coverage!
+                raise HaxCompileError(
                     f"Expected a string (got {arg!r}).",
                     (bytecode.co_filename, line, None, None),
                 )
             try:
                 info["arg"] = (bytecode.co_cellvars + bytecode.co_freevars).index(arg)
-            except ValueError:  # Needs coverage!
-                raise HaxCompileError(  # Needs coverage!
+            except ValueError:
+                raise HaxCompileError(
+                    # Just do this for them?
                     f'No free/cell variable {arg!r}; maybe use "nonlocal" in the inner scope to compile correctly?',
                     (bytecode.co_filename, line, None, None),
                 ) from None
         elif new_op in HASJUMP:
             if arg in labels:
                 if new_op in HASJREL:
-                    raise HaxCompileError(  # Needs coverage!
+                    raise HaxCompileError(
                         "Relative jumps must be forwards, not backwards!",
                         (bytecode.co_filename, line, None, None),
                     )
@@ -404,7 +406,7 @@ def _hax(bytecode: CodeType) -> CodeType:
                 info["min_size"] = padding + 2
                 deferred_labels.setdefault(arg, []).append(info)
         elif not isinstance(arg, int):
-            raise HaxCompileError(  # Needs coverage!
+            raise HaxCompileError(
                 f"Expected integer argument, got {arg!r}.",
                 (bytecode.co_filename, line, None, None),
             )
@@ -416,22 +418,21 @@ def _hax(bytecode: CodeType) -> CodeType:
         last_line = line
 
     if not used:
-        return bytecode  # Needs coverage!
+        return bytecode
 
-    if deferred_labels:
-        raise HaxCompileError(  # Needs coverage!
+    if deferred_labels:  # Warn unused labels, too?
+        raise HaxCompileError(
             f"The following labels don't exist: {', '.join(map(repr, deferred_labels))}"
         )
 
-    maybe_posonlyargcount = (
-        (bytecode.co_posonlyargcount,)
-        if hasattr(bytecode, "co_posonlyargcount")
-        else ()
-    )
+    if sys.version_info < (3, 8):  # pragma: no cover
+        maybe_posonlyargcount = ()
+    else:
+        maybe_posonlyargcount = (bytecode.co_posonlyargcount,)
 
-    return CodeType(  # type: ignore
+    return CodeType(
         bytecode.co_argcount,
-        *maybe_posonlyargcount,  # type: ignore
+        *maybe_posonlyargcount,
         bytecode.co_kwonlyargcount,
         len(varnames),
         stacksize,

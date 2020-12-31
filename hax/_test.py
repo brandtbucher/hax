@@ -13,22 +13,41 @@ from os.path import splitext
 from re import findall
 from sys import maxsize, version_info
 from types import CodeType, FunctionType
-from typing import Any, AsyncGenerator, Dict, Generator, Sequence, List, Tuple
+from typing import (
+    Any,
+    AsyncGenerator,
+    Callable,
+    Dict,
+    Generator,
+    Sequence,
+    List,
+    Tuple,
+    cast,
+)
 from unittest.mock import patch
 from warnings import catch_warnings, simplefilter
 
 from hypothesis import HealthCheck, given, settings
 from hypothesis.strategies import builds, lists
-from pytest import mark, param, raises, skip
+from pytest import mark, param, raises, skip, warns
 
 import hax
 from hax import (
     _checks,
+    BUILD_LIST,
+    COMPARE_OP,
     EXTENDED_ARG,
+    HAX_LABEL,
     HaxUsageError,
     HaxCompileError,
+    JUMP_FORWARD,
+    LABEL,
     LOAD_CONST,
+    LOAD_DEREF,
+    LOAD_FAST,
+    LOAD_NAME,
     NOP,
+    RETURN_VALUE,
     YIELD_VALUE,
 )
 
@@ -48,8 +67,9 @@ def get_stdlib_functions() -> List[FunctionType]:
                 stdlib.append(import_module(package))
         except ImportError:
             pass
-
-    for name, extension in map(splitext, modules):  # type: ignore
+    for name, extension in map(
+        cast(Callable[[str], Tuple[str, str]], splitext), modules
+    ):
         assert isinstance(name, str)
         if extension != ".py" or not name.isidentifier() or name == "antigravity":
             continue
@@ -146,6 +166,9 @@ def test_hax_label() -> None:
 )
 def test_stdlib(test: Any) -> None:
     name = test.__name__ if test.__name__.isidentifier() else "_"
+    if f"{test.__module__}.{test.__qualname__}" != "dis._unpack_opargs":
+        assert hax.hax(test).__code__ is test.__code__
+        assert hax.hax(test.__code__) is test.__code__
     if (
         f"{test.__module__}.{test.__qualname__}" == "mimetypes._default_mime_types"
         and version_info < (3, 7)
@@ -239,7 +262,7 @@ def test_bad_arg_negative() -> None:
 
         @hax.hax
         def _() -> None:
-            EXTENDED_ARG(-1)
+            EXTENDED_ARG(-1)  # Use a different op here?
 
 
 def test_bad_arg_large() -> None:
@@ -247,16 +270,16 @@ def test_bad_arg_large() -> None:
 
         @hax.hax
         def _() -> None:
-            EXTENDED_ARG(1 << 32)
+            EXTENDED_ARG(1 << 32)  # Use a different op here?
 
 
-def test_okay_args() -> None:
+def test_okay_args() -> None:  # This should be refactored to actually test something.
     @hax.hax
     def _() -> None:
-        EXTENDED_ARG((1 << 32) - 1)
-        EXTENDED_ARG((1 << 24) - 1)
-        EXTENDED_ARG((1 << 16) - 1)
-        EXTENDED_ARG((1 << 8) - 1)
+        EXTENDED_ARG((1 << 32) - 1)  # Use a different op here?
+        EXTENDED_ARG((1 << 24) - 1)  # Use a different op here?
+        EXTENDED_ARG((1 << 16) - 1)  # Use a different op here?
+        EXTENDED_ARG((1 << 8) - 1)  # Use a different op here?
 
 
 def test_bad_type() -> None:
@@ -276,7 +299,7 @@ def test_bad_usage_non_simple() -> None:
     with raises(HaxCompileError):
 
         @hax.hax
-        def _() -> None:
+        def _() -> None:  # Use a different op here?
             EXTENDED_ARG(_)  # type: ignore  # pylint: disable = too-many-function-args
 
 
@@ -300,7 +323,7 @@ def test_bad_usage_none_when_expected() -> None:
     with raises(HaxCompileError):
 
         @hax.hax
-        def _() -> None:
+        def _() -> None:  # Use a different op here?
             EXTENDED_ARG()  # type: ignore  # pylint: disable = no-value-for-parameter
 
 
@@ -348,3 +371,121 @@ def test_async_generator_to_async_generator() -> None:
     assert _.__code__.co_flags & CO_ASYNC_GENERATOR
     assert not _.__code__.co_flags & CO_GENERATOR
     assert not _.__code__.co_flags & CO_COROUTINE
+
+
+def test_code_type() -> None:
+    def _() -> None:
+        pass
+
+    assert hax.hax(_.__code__) is _.__code__
+
+
+def test_bad_usage() -> None:
+    with raises(HaxCompileError):
+
+        @hax.hax
+        def _() -> None:
+            NOP = ...  # pylint: disable = redefined-outer-name, unused-variable
+
+
+def test_old_label() -> None:
+    with warns(DeprecationWarning):
+
+        @hax.hax
+        def _() -> None:
+            JUMP_FORWARD("_")
+            LABEL("_")
+
+
+def test_duplicate_label() -> None:
+    with raises(HaxCompileError):
+
+        @hax.hax
+        def _() -> None:
+            JUMP_FORWARD("_")
+            HAX_LABEL("_")
+            HAX_LABEL("_")
+
+
+def test_local_non_string() -> None:
+    with raises(HaxCompileError):
+
+        @hax.hax
+        def _() -> None:
+            LOAD_FAST(...)  # type: ignore
+            RETURN_VALUE()
+
+
+def test_name_non_string() -> None:
+    with raises(HaxCompileError):
+
+        @hax.hax
+        def _() -> None:
+            LOAD_NAME(...)  # type: ignore
+            RETURN_VALUE()
+
+
+def test_compare_non_string() -> None:
+    with raises(HaxCompileError):
+
+        @hax.hax
+        def _() -> None:
+            LOAD_CONST(...)
+            LOAD_CONST(...)
+            COMPARE_OP(...)  # type: ignore
+            RETURN_VALUE()
+
+
+def test_compare_invalid() -> None:
+    with raises(HaxCompileError):
+
+        @hax.hax
+        def _() -> None:
+            LOAD_CONST(...)
+            LOAD_CONST(...)
+            COMPARE_OP("=")
+            RETURN_VALUE()
+
+
+def test_free_non_string() -> None:
+    with raises(HaxCompileError):
+
+        @hax.hax
+        def _() -> None:
+            LOAD_DEREF(...)  # type: ignore
+            RETURN_VALUE()
+
+
+def test_free_invalid() -> None:
+    with raises(HaxCompileError):
+
+        @hax.hax
+        def _() -> None:
+            LOAD_DEREF("_")
+            RETURN_VALUE()
+
+
+def test_backward_jrel() -> None:
+    with raises(HaxCompileError):
+
+        @hax.hax
+        def _() -> None:
+            HAX_LABEL("_")
+            JUMP_FORWARD("_")
+
+
+def test_non_int() -> None:
+    with raises(HaxCompileError):
+
+        @hax.hax
+        def _() -> None:
+            BUILD_LIST(...)  # type: ignore
+            RETURN_VALUE()
+
+
+def test_missing_label() -> None:
+    with raises(HaxCompileError):
+
+        @hax.hax
+        def _() -> None:
+            JUMP_FORWARD("_")
