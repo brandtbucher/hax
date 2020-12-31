@@ -166,7 +166,10 @@ def test_hax_label() -> None:
 )
 def test_stdlib(test: Any) -> None:
     name = test.__name__ if test.__name__.isidentifier() else "_"
-    if f"{test.__module__}.{test.__qualname__}" != "dis._unpack_opargs":
+    if f"{test.__module__}.{test.__qualname__}" not in {
+        "dis._get_instructions_bytes",
+        "dis._unpack_opargs",
+    }:
         assert hax.hax(test).__code__ is test.__code__
         assert hax.hax(test.__code__) is test.__code__
     if (
