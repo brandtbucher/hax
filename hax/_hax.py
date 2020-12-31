@@ -427,7 +427,7 @@ def _hax(bytecode: CodeType) -> CodeType:
 
     if sys.version_info < (3, 8):  # pragma: no cover
         maybe_posonlyargcount = ()
-    else:
+    else:  # pragma: no cover
         maybe_posonlyargcount = (bytecode.co_posonlyargcount,)
 
     return CodeType(
