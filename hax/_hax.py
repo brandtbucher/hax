@@ -13,8 +13,13 @@ from dis import (
     opmap,
     stack_effect,
 )
+from inspect import (  # pylint: disable = no-name-in-module
+    CO_ASYNC_GENERATOR,
+    CO_COROUTINE,
+    CO_GENERATOR,
+)
 from types import CodeType, FunctionType
-from typing import Any, Dict, Hashable, Iterator, List, Tuple, TypeVar
+from typing import Any, Dict, Generator, Hashable, List, Tuple, TypeVar
 from warnings import warn
 
 
@@ -41,7 +46,9 @@ class HaxCompileError(SyntaxError):
     pass
 
 
-def instructions_with_lines(code: CodeType) -> Iterator[Tuple[Instruction, int]]:
+def instructions_with_lines(
+    code: CodeType,
+) -> Generator[Tuple[Instruction, int], None, None]:
     line = code.co_firstlineno
     for instruction in get_instructions(code):
         line = instruction.starts_line or line
@@ -50,7 +57,7 @@ def instructions_with_lines(code: CodeType) -> Iterator[Tuple[Instruction, int]]
 
 def backfill(
     arg: int, line: int, min_size: int, new_op: int, filename: str, **_: object
-) -> Iterator[int]:
+) -> Generator[int, None, None]:
 
     assert min_size in {2, 4, 6, 8}, "Invalid min_size!"
 
@@ -144,6 +151,7 @@ def _hax(bytecode: CodeType) -> CodeType:
             ]
         )
     }
+    flags = bytecode.co_flags
 
     labels: Dict[Hashable, int] = {}
     deferred_labels: Dict[Hashable, List[Dict[str, Any]]] = {}
@@ -291,6 +299,18 @@ def _hax(bytecode: CodeType) -> CodeType:
             last_line = line
             continue
 
+        if op.argval in {"YIELD_FROM", "YIELD_VALUE"}:
+            if flags & CO_COROUTINE:
+                flags ^= CO_COROUTINE
+                flags |= CO_ASYNC_GENERATOR
+                assert flags & CO_ASYNC_GENERATOR
+                assert not flags & CO_GENERATOR
+            elif not flags & CO_ASYNC_GENERATOR:
+                flags |= CO_GENERATOR
+                assert not flags & CO_ASYNC_GENERATOR
+                assert flags & CO_GENERATOR
+            assert not flags & CO_COROUTINE
+
         new_op = opmap[op.argval]
 
         has_arg = HAVE_ARGUMENT <= new_op
@@ -415,7 +435,7 @@ def _hax(bytecode: CodeType) -> CodeType:
         bytecode.co_kwonlyargcount,
         len(varnames),
         stacksize,
-        bytecode.co_flags,
+        flags,
         bytes(code),
         tuple(consts),
         tuple(names),
@@ -424,6 +444,6 @@ def _hax(bytecode: CodeType) -> CodeType:
         bytecode.co_name,
         bytecode.co_firstlineno,
         bytes(lnotab),
-        bytecode.co_freevars,
-        bytecode.co_cellvars,
+        bytecode.co_freevars,  # Need to update? CO_NOFREE?
+        bytecode.co_cellvars,  # Need to update? CO_NOFREE?
     )

@@ -1,6 +1,11 @@
 from dis import HAVE_ARGUMENT, get_instructions, hasjabs, hasjrel, opmap
 from distutils.sysconfig import get_python_lib
-from inspect import signature
+from inspect import (  # pylint: disable = no-name-in-module
+    CO_ASYNC_GENERATOR,
+    CO_COROUTINE,
+    CO_GENERATOR,
+    signature,
+)
 from importlib import import_module, reload
 from itertools import chain
 from os import walk
@@ -8,7 +13,7 @@ from os.path import splitext
 from re import findall
 from sys import maxsize, version_info
 from types import CodeType, FunctionType
-from typing import Any, Dict, Iterator, Sequence, List, Tuple
+from typing import Any, AsyncGenerator, Dict, Generator, Sequence, List, Tuple
 from unittest.mock import patch
 from warnings import catch_warnings, simplefilter
 
@@ -17,7 +22,15 @@ from hypothesis.strategies import builds, lists
 from pytest import mark, param, raises, skip
 
 import hax
-from hax import _checks, EXTENDED_ARG, HaxUsageError, HaxCompileError, NOP
+from hax import (
+    _checks,
+    EXTENDED_ARG,
+    HaxUsageError,
+    HaxCompileError,
+    LOAD_CONST,
+    NOP,
+    YIELD_VALUE,
+)
 
 
 def get_stdlib_functions() -> List[FunctionType]:
@@ -71,7 +84,7 @@ def get_stdlib_functions() -> List[FunctionType]:
     ]
 
 
-def get_examples() -> Iterator[object]:
+def get_examples() -> Generator[object, None, None]:
 
     with open("README.md") as readme:
         examples = findall(r"\n```py(\n[^`]+\n)```\n", readme.read())
@@ -289,3 +302,49 @@ def test_bad_usage_none_when_expected() -> None:
         @hax.hax
         def _() -> None:
             EXTENDED_ARG()  # type: ignore  # pylint: disable = no-value-for-parameter
+
+
+def test_function_to_generator() -> None:
+    @hax.hax
+    def _() -> None:
+        LOAD_CONST(None)
+        YIELD_VALUE()
+
+    assert _.__code__.co_flags & CO_GENERATOR
+    assert not _.__code__.co_flags & CO_ASYNC_GENERATOR
+    assert not _.__code__.co_flags & CO_COROUTINE
+
+
+def test_generator_to_generator() -> None:
+    @hax.hax
+    def _() -> Generator[None, None, None]:
+        LOAD_CONST(None)
+        YIELD_VALUE()
+        yield
+
+    assert _.__code__.co_flags & CO_GENERATOR
+    assert not _.__code__.co_flags & CO_ASYNC_GENERATOR
+    assert not _.__code__.co_flags & CO_COROUTINE
+
+
+def test_coroutine_to_async_generator() -> None:
+    @hax.hax
+    async def _() -> None:
+        LOAD_CONST(None)
+        YIELD_VALUE()
+
+    assert _.__code__.co_flags & CO_ASYNC_GENERATOR
+    assert not _.__code__.co_flags & CO_GENERATOR
+    assert not _.__code__.co_flags & CO_COROUTINE
+
+
+def test_async_generator_to_async_generator() -> None:
+    @hax.hax
+    async def _() -> AsyncGenerator[None, None]:
+        LOAD_CONST(None)
+        YIELD_VALUE()
+        yield
+
+    assert _.__code__.co_flags & CO_ASYNC_GENERATOR
+    assert not _.__code__.co_flags & CO_GENERATOR
+    assert not _.__code__.co_flags & CO_COROUTINE
