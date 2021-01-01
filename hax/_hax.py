@@ -78,15 +78,15 @@ def backfill(
         yield EXTENDED_ARG
         yield arg >> 24 & 255
     elif 8 == min_size:
-        yield NOP  # Needs coverage!
-        yield 0  # Needs coverage!
+        yield NOP
+        yield 0
 
     if 1 << 16 <= arg:
         yield EXTENDED_ARG
         yield arg >> 16 & 255
     elif 6 <= min_size:
-        yield NOP  # Needs coverage!
-        yield 0  # Needs coverage!
+        yield NOP
+        yield 0
 
     if 1 << 8 <= arg:
         yield EXTENDED_ARG
@@ -255,12 +255,8 @@ def _hax(bytecode: CodeType) -> CodeType:
                 continue
 
             break
-
-        # else:
-        #     raise HaxCompileError(  # Needs coverage!
-        #         "Ops must consist of a simple call.",
-        #         (bytecode.co_filename, line, None, None),
-        #     )
+        else:  # pragma: no cover
+            assert False
 
         if following.opcode != CALL_FUNCTION:
             raise HaxCompileError(
@@ -394,9 +390,9 @@ def _hax(bytecode: CodeType) -> CodeType:
                     - ((len(code) + 2) if new_op in HASJREL else 0)
                 )
                 if 1 << 24 <= max_jump:
-                    padding = 6  # Needs coverage!
+                    padding = 6
                 elif 1 << 16 <= max_jump:
-                    padding = 4  # Needs coverage!
+                    padding = 4
                 elif 1 << 8 <= max_jump:
                     padding = 2
                 else:

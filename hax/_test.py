@@ -396,8 +396,8 @@ def test_old_label() -> None:
 
         @hax.hax
         def _() -> None:
-            JUMP_FORWARD("_")
-            LABEL("_")
+            JUMP_FORWARD(...)
+            LABEL(...)
 
 
 def test_duplicate_label() -> None:
@@ -405,9 +405,9 @@ def test_duplicate_label() -> None:
 
         @hax.hax
         def _() -> None:
-            JUMP_FORWARD("_")
-            HAX_LABEL("_")
-            HAX_LABEL("_")
+            JUMP_FORWARD(...)
+            HAX_LABEL(...)
+            HAX_LABEL(...)
 
 
 def test_local_non_string() -> None:
@@ -473,8 +473,8 @@ def test_backward_jrel() -> None:
 
         @hax.hax
         def _() -> None:
-            HAX_LABEL("_")
-            JUMP_FORWARD("_")
+            HAX_LABEL(...)
+            JUMP_FORWARD(...)
 
 
 def test_non_int() -> None:
@@ -491,4 +491,52 @@ def test_missing_label() -> None:
 
         @hax.hax
         def _() -> None:
-            JUMP_FORWARD("_")
+            JUMP_FORWARD(...)
+
+
+def test_jump_absolute_long() -> None:
+    # NOPS * 6 + CODE_SIZE - 2 * IS_JREL - 1 >= 1 << 16
+    # NOPS * 6 + 28 - 2 * 0 - 1 >= 65536
+    # NOPS * 6 >= 65509
+    # NOPS >= 10918.2
+    nops = "NOP();" * 10919
+    definition = f"@hax\ndef _():JUMP_ABSOLUTE(...);assert False;{nops}HAX_LABEL(...)"
+    namespace: Dict[str, Any] = {"hax": hax.hax}
+    exec(definition, namespace)  # pylint: disable = exec-used
+    assert namespace["_"]() is None
+
+
+def test_jump_relative_long() -> None:
+    # NOPS * 6 + CODE_SIZE - 2 * IS_JREL - 1 >= 1 << 16
+    # NOPS * 6 + 28 - 2 * 1 - 1 >= 65536
+    # NOPS * 6 >= 65511
+    # NOPS >= 10918.5
+    nops = "NOP();" * 10919
+    definition = f"@hax\ndef _():JUMP_FORWARD(...);assert False;{nops}HAX_LABEL(...)"
+    namespace: Dict[str, Any] = {"hax": hax.hax}
+    exec(definition, namespace)  # pylint: disable = exec-used
+    assert namespace["_"]() is None
+
+
+def test_jump_absolute_longer() -> None:
+    # NOPS * 6 + CODE_SIZE - 2 * IS_JREL - 1 >= 1 << 24
+    # NOPS * 6 + 28 - 2 * 0 - 1 >= 16777216
+    # NOPS * 6 >= 16777189
+    # NOPS >= 2796198.2
+    nops = "NOP();" * 2796199
+    definition = f"@hax\ndef _():JUMP_ABSOLUTE(...);assert False;{nops}HAX_LABEL(...)"
+    namespace: Dict[str, Any] = {"hax": hax.hax}
+    exec(definition, namespace)  # pylint: disable = exec-used
+    assert namespace["_"]() is None
+
+
+def test_jump_relative_longer() -> None:
+    # NOPS * 6 + CODE_SIZE - 2 * IS_JREL - 1 >= 1 << 24
+    # NOPS * 6 + 28 - 2 * 1 - 1 >= 16777216
+    # NOPS * 6 >= 16777191
+    # NOPS >= 2796198.5
+    nops = "NOP();" * 2796199
+    definition = f"@hax\ndef _():JUMP_FORWARD(...);assert False;{nops}HAX_LABEL(...)"
+    namespace: Dict[str, Any] = {"hax": hax.hax}
+    exec(definition, namespace)  # pylint: disable = exec-used
+    assert namespace["_"]() is None
