@@ -547,4 +547,5 @@ def test_ignored_nop() -> None:
     @hax.hax
     def _() -> None:
         NOP()
+
     assert _() is None
