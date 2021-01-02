@@ -7,7 +7,7 @@ omit = *test*
 
 [report]
 
-fail_under = 10
+fail_under = 100
 show_missing = True
 skip_covered = True
 sort = Cover
