@@ -3,7 +3,7 @@
 The MIT License
 ===============
 
-### Copyright © 2019 Gary Brandt Bucher, II
+### Copyright © 2019-2021 Gary Brandt Bucher, II
 
 </div>
 
