@@ -174,7 +174,8 @@ def _hax(bytecode: CodeType) -> CodeType:
                     # assert len(code) == offset, "Code changed size!"  # Look into this!
 
             if op.opcode < HAVE_ARGUMENT:
-                stacksize += max(0, stack_effect(op.opcode))
+                if op.opcode != NOP:  # Just skip these?
+                    stacksize += max(0, stack_effect(op.opcode))
                 lnotab += 1, line - last_line
                 code += op.opcode, 0
                 last_line = line
@@ -221,6 +222,7 @@ def _hax(bytecode: CodeType) -> CodeType:
                 info["arg"] = len(code) + len(extended) + 2
                 jumps.setdefault(op.argval, []).append(info)
 
+            assert op.opcode != EXTENDED_ARG
             stacksize += max(
                 0,
                 stack_effect(
@@ -406,7 +408,7 @@ def _hax(bytecode: CodeType) -> CodeType:
                 f"Expected integer argument, got {arg!r}.",
                 (bytecode.co_filename, line, None, None),
             )
-        if new_op != EXTENDED_ARG:
+        if new_op not in {EXTENDED_ARG, NOP}:
             stacksize += max(0, stack_effect(new_op, info["arg"] if has_arg else None))
         new_code = [*backfill(**info)]
         lnotab += 1, line - last_line, len(new_code) - 1, 0

@@ -540,3 +540,11 @@ def test_jump_relative_longer() -> None:
     namespace: Dict[str, Any] = {"hax": hax.hax}
     exec(definition, namespace)  # pylint: disable = exec-used
     assert namespace["_"]() is None
+
+
+def test_ignored_nop() -> None:
+    @hax.hax
+    @hax.hax
+    def _() -> None:
+        NOP()
+    assert _() is None
