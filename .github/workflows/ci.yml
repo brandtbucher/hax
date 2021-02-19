@@ -9,11 +9,11 @@ jobs:
     name: Format
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@master
-      - uses: actions/setup-python@master
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
         with:
           python-version: 3.9
-      - uses: actions/cache@master
+      - uses: actions/cache@v2
         with:
           path: ~/.cache/pip
           key: pip-${{ hashFiles('requirements*.txt') }}
@@ -25,11 +25,11 @@ jobs:
     name: Typecheck
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@master
-      - uses: actions/setup-python@master
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
         with:
           python-version: 3.9
-      - uses: actions/cache@master
+      - uses: actions/cache@v2
         with:
           path: ~/.cache/pip
           key: pip-${{ hashFiles('requirements*.txt') }}
@@ -41,11 +41,11 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@master
-      - uses: actions/setup-python@master
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
         with:
           python-version: 3.9
-      - uses: actions/cache@master
+      - uses: actions/cache@v2
         with:
           path: ~/.cache/pip
           key: pip-${{ hashFiles('requirements*.txt') }}
@@ -60,11 +60,11 @@ jobs:
         python: [3.6, 3.7, 3.8, 3.9]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@master
-      - uses: actions/setup-python@master
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python }}
-      - uses: actions/cache@master
+      - uses: actions/cache@v2
         with:
           path: ~/.cache/pip
           key: pip-${{ hashFiles('requirements*.txt') }}
@@ -77,18 +77,18 @@ jobs:
     needs: [black, mypy, pylint, pytest]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@master
-      - uses: actions/setup-python@master
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
         with:
           python-version: 3.9
-      - uses: actions/cache@master
+      - uses: actions/cache@v2
         with:
           path: ~/.cache/pip
           key: pip-${{ hashFiles('requirements-pre.txt') }}
           restore-keys: pip-
       - run: pip install --upgrade --requirement requirements-pre.txt
       - run: python setup.py sdist bdist_wheel
-      - uses: actions/upload-artifact@master
+      - uses: actions/upload-artifact@v2
         with:
           name: dist
           path: dist
@@ -98,11 +98,11 @@ jobs:
     needs: [setup]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@master
+      - uses: actions/download-artifact@v2
         with:
           name: dist
           path: dist
-      - uses: pypa/gh-action-pypi-publish@master
+      - uses: pypa/gh-action-pypi-publish@v1
         with:
           password: ${{ secrets.PYPI_TOKEN }}
           skip_existing: true
