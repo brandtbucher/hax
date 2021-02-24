@@ -1,7 +1,11 @@
 name: CI
 on:
   pull_request:
+    branches:
+      - master
   push:
+    branches:
+      - master
   release:
     types: published
 jobs:
