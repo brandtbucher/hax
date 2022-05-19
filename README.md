@@ -18,7 +18,7 @@ optimizer.
 Installation
 ------------
 
-HAX supports CPython 3.6+ on all platforms.
+HAX supports CPython 3.7+ on all platforms.
 
 To install, just run:
 
@@ -93,7 +93,7 @@ def doubled(items):
 It's important to realize that the functions HAX provides (`BUILD_LIST`,
 `LOAD_FAST`, ...) aren't just "emulating" their respective bytecode
 instructions; the `@hax` decorator detects them, and completely recompiles
-`double`'s code to use the _actual_ ops that we've specified here!
+`doubled`'s code to use the _actual_ ops that we've specified here!
 
 These performance improvements are impossible to get from CPython's compiler and
 optimizer alone.

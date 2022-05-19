@@ -3,7 +3,7 @@ from setuptools import setup
 from hax import __version__ as version
 
 
-with open("README.md") as readme:
+with open("README.md", encoding="utf-8") as readme:
     _LONG_DESCRIPTION = readme.read()
 
 

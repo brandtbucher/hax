@@ -21,7 +21,7 @@ def BEFORE_ASYNC_WITH() -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-if (3, 8) <= _version_info:  # pragma: no cover
+if (3, 8) <= _version_info < (3, 9):  # pragma: no cover
 
     def BEGIN_FINALLY() -> None:
         raise HaxUsageError(_USAGE_MESSAGE)
@@ -147,7 +147,7 @@ if _version_info < (3, 9):  # pragma: no cover
         raise HaxUsageError(_USAGE_MESSAGE)
 
 
-if (3, 8) <= _version_info:  # pragma: no cover
+if (3, 8) <= _version_info < (3, 9):  # pragma: no cover
 
     def CALL_FINALLY(arg: _Hashable) -> None:
         raise HaxUsageError(_USAGE_MESSAGE)
@@ -165,10 +165,8 @@ def CALL_FUNCTION_KW(arg: int) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-if (3, 7) <= _version_info:  # pragma: no cover
-
-    def CALL_METHOD(arg: int) -> None:
-        raise HaxUsageError(_USAGE_MESSAGE)
+def CALL_METHOD(arg: int) -> None:
+    raise HaxUsageError(_USAGE_MESSAGE)
 
 
 def COMPARE_OP(arg: str) -> None:
@@ -184,6 +182,12 @@ if (3, 9) <= _version_info:  # pragma: no cover
 if _version_info < (3, 8):  # pragma: no cover
 
     def CONTINUE_LOOP(arg: _Hashable) -> None:
+        raise HaxUsageError(_USAGE_MESSAGE)
+
+
+if (3, 10) <= _version_info:  # pragma: no cover
+
+    def COPY_DICT_WITHOUT_KEYS() -> None:
         raise HaxUsageError(_USAGE_MESSAGE)
 
 
@@ -252,6 +256,12 @@ def FOR_ITER(arg: _Hashable) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
+if (3, 10) <= _version_info:  # pragma: no cover
+
+    def GEN_START(arg: int) -> None:
+        raise HaxUsageError(_USAGE_MESSAGE)
+
+
 def GET_AITER() -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
@@ -266,6 +276,12 @@ def GET_AWAITABLE() -> None:
 
 def GET_ITER() -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
+
+
+if (3, 10) <= _version_info:  # pragma: no cover
+
+    def GET_LEN() -> None:
+        raise HaxUsageError(_USAGE_MESSAGE)
 
 
 def GET_YIELD_FROM_ITER() -> None:
@@ -412,10 +428,8 @@ def LOAD_GLOBAL(arg: str) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-if (3, 7) <= _version_info:  # pragma: no cover
-
-    def LOAD_METHOD(arg: str) -> None:
-        raise HaxUsageError(_USAGE_MESSAGE)
+def LOAD_METHOD(arg: str) -> None:
+    raise HaxUsageError(_USAGE_MESSAGE)
 
 
 def LOAD_NAME(arg: str) -> None:
@@ -430,6 +444,21 @@ def MAP_ADD(arg: int) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
+if (3, 10) <= _version_info:  # pragma: no cover
+
+    def MATCH_CLASS(arg: int) -> None:
+        raise HaxUsageError(_USAGE_MESSAGE)
+
+    def MATCH_KEYS() -> None:
+        raise HaxUsageError(_USAGE_MESSAGE)
+
+    def MATCH_MAPPING() -> None:
+        raise HaxUsageError(_USAGE_MESSAGE)
+
+    def MATCH_SEQUENCE() -> None:
+        raise HaxUsageError(_USAGE_MESSAGE)
+
+
 def NOP() -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
@@ -442,7 +471,7 @@ def POP_EXCEPT() -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-if (3, 8) <= _version_info:  # pragma: no cover
+if (3, 8) <= _version_info < (3, 9):  # pragma: no cover
 
     def POP_FINALLY(arg: bool) -> None:
         raise HaxUsageError(_USAGE_MESSAGE)
@@ -468,9 +497,14 @@ def RAISE_VARARGS(arg: int) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
 
 
-if (3, 9) <= _version_info:  # pragma: no cover
+if (3, 9) <= _version_info < (3, 10):  # pragma: no cover
 
     def RERAISE() -> None:
+        raise HaxUsageError(_USAGE_MESSAGE)
+
+elif (3, 10) <= _version_info:  # pragma: no cover
+
+    def RERAISE(arg: int) -> None:  # type: ignore
         raise HaxUsageError(_USAGE_MESSAGE)
 
 
@@ -481,6 +515,12 @@ def RETURN_VALUE() -> None:
 if (3, 8) <= _version_info:  # pragma: no cover
 
     def ROT_FOUR() -> None:
+        raise HaxUsageError(_USAGE_MESSAGE)
+
+
+if (3, 10) <= _version_info:  # pragma: no cover
+
+    def ROT_N(arg: int) -> None:
         raise HaxUsageError(_USAGE_MESSAGE)
 
 
@@ -532,12 +572,6 @@ def SET_ADD(arg: int) -> None:
 
 def STORE_ATTR(arg: str) -> None:
     raise HaxUsageError(_USAGE_MESSAGE)
-
-
-if _version_info < (3, 7):  # pragma: no cover
-
-    def STORE_ANNOTATION(arg: str) -> None:
-        raise HaxUsageError(_USAGE_MESSAGE)
 
 
 def STORE_DEREF(arg: str) -> None:

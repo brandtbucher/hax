@@ -1,5 +1,5 @@
 from dis import HAVE_ARGUMENT, get_instructions, hasjabs, hasjrel, opmap
-from distutils.sysconfig import get_python_lib
+from sysconfig import get_path
 from inspect import (  # pylint: disable = no-name-in-module
     CO_ASYNC_GENERATOR,
     CO_COROUTINE,
@@ -8,6 +8,7 @@ from inspect import (  # pylint: disable = no-name-in-module
 )
 from importlib import import_module, reload
 from itertools import chain
+from math import ceil
 from os import walk
 from os.path import splitext
 from re import findall
@@ -34,6 +35,7 @@ from pytest import mark, param, raises, skip, warns
 import hax
 from hax import (
     _checks,
+    _helpers,
     BUILD_LIST,
     COMPARE_OP,
     EXTENDED_ARG,
@@ -56,7 +58,7 @@ def get_stdlib_functions() -> List[FunctionType]:
 
     stdlib = []
 
-    _, packages, modules = next(walk(get_python_lib(standard_lib=True)))
+    _, packages, modules = next(walk(get_path("stdlib")))
 
     for package in packages:
         if not package.isidentifier():
@@ -106,7 +108,7 @@ def get_stdlib_functions() -> List[FunctionType]:
 
 def get_examples() -> Generator[object, None, None]:
 
-    with open("README.md") as readme:
+    with open("README.md", encoding="utf-8") as readme:
         examples = findall(r"\n```py(\n[^`]+\n)```\n", readme.read())
 
     for i, example in enumerate(examples):
@@ -184,6 +186,10 @@ def test_stdlib(test: Any) -> None:
         op for op in get_instructions(test) if op.opname not in {"NOP", "EXTENDED_ARG"}
     ]
     for op in get_instructions(test):
+        if op.is_jump_target:
+            definition += f"    HAX_LABEL({op.offset})\n"
+        if op.opname == "EXTENDED_ARG":  # What does it even mean to do this?
+            continue
         if op.opname == "LOAD_CONST":
             arg = repr(op.argval).replace("Ellipsis", "...")
         elif op.opname == "FORMAT_VALUE":
@@ -192,8 +198,6 @@ def test_stdlib(test: Any) -> None:
             arg = repr(op.argval)
         else:
             arg = ""
-        if op.is_jump_target:
-            definition += f"    HAX_LABEL({op.offset})\n"
         definition += f"    {op.opname}({arg})\n"
     if test.__code__.co_freevars:
         definition += f"  return {name}\n{name} = __()"
@@ -218,7 +222,12 @@ def test_stdlib(test: Any) -> None:
         and version_info < (3, 7)
     ):
         assert test.__code__.co_stacksize <= copy.__code__.co_stacksize
-    assert {*test.__code__.co_varnames} <= {*copy.__code__.co_varnames}
+    if not (
+        # This is pretty cool. We're *more* efficient than CPython for this one:
+        f"{test.__module__}.{test.__qualname__}" == "textwrap.dedent"
+        and (3, 10) <= version_info
+    ):
+        assert {*test.__code__.co_varnames} <= {*copy.__code__.co_varnames}
     assert len(ops) == len(copy_ops)
     for op, copy_op in zip(ops, copy_ops):
         assert op.opname == copy_op.opname, (op, copy_op)
@@ -229,18 +238,18 @@ def test_stdlib(test: Any) -> None:
 @mark.parametrize(
     "version",
     [
-        (3, 5, 0, "final", 0),
         (3, 6, 0, "final", 0),
         (3, 7, 0, "final", 0),
         (3, 8, 0, "final", 0),
         (3, 9, 0, "final", 0),
+        (3, 10, 0, "final", 0),
     ],
 )
 def test_version(version: Tuple[int, int, int, str, int]) -> None:
 
     with patch("sys.version_info", version):
 
-        if version < (3, 6):
+        if version < (3, 7):
             with raises(RuntimeError):
                 reload(_checks)
         else:
@@ -496,11 +505,13 @@ def test_missing_label() -> None:
 
 def test_jump_absolute_long() -> None:
     # NOPS * 6 + CODE_SIZE - 2 * IS_JREL - 1 >= 1 << 16
-    # NOPS * 6 + 28 - 2 * 0 - 1 >= 65536
-    # NOPS * 6 >= 65509
-    # NOPS >= 10918.2
-    nops = "NOP();" * 10919
-    definition = f"@hax\ndef _():JUMP_ABSOLUTE(...);assert False;{nops}HAX_LABEL(...)"
+    # NOPS * 6 + 30 - 2 * 0 - 1 >= 65536
+    # NOPS * 6 >= 65507
+    # NOPS >= 10917.8
+    nops = "NOP();" * ceil(10917.8 * (2 if (3, 10) <= version_info else 1))
+    definition = (
+        f"@hax\ndef _():JUMP_ABSOLUTE(...);x=False;assert x;{nops}HAX_LABEL(...)"
+    )
     namespace: Dict[str, Any] = {"hax": hax.hax}
     exec(definition, namespace)  # pylint: disable = exec-used
     assert namespace["_"]() is None
@@ -508,11 +519,13 @@ def test_jump_absolute_long() -> None:
 
 def test_jump_relative_long() -> None:
     # NOPS * 6 + CODE_SIZE - 2 * IS_JREL - 1 >= 1 << 16
-    # NOPS * 6 + 28 - 2 * 1 - 1 >= 65536
-    # NOPS * 6 >= 65511
-    # NOPS >= 10918.5
-    nops = "NOP();" * 10919
-    definition = f"@hax\ndef _():JUMP_FORWARD(...);assert False;{nops}HAX_LABEL(...)"
+    # NOPS * 6 + 30 - 2 * 1 - 1 >= 65536
+    # NOPS * 6 >= 65509
+    # NOPS >= 10918.2
+    nops = "NOP();" * ceil(10918.2 * (2 if (3, 10) <= version_info else 1))
+    definition = (
+        f"@hax\ndef _():JUMP_FORWARD(...);x=False;assert x;{nops}HAX_LABEL(...)"
+    )
     namespace: Dict[str, Any] = {"hax": hax.hax}
     exec(definition, namespace)  # pylint: disable = exec-used
     assert namespace["_"]() is None
@@ -520,11 +533,13 @@ def test_jump_relative_long() -> None:
 
 def test_jump_absolute_longer() -> None:
     # NOPS * 6 + CODE_SIZE - 2 * IS_JREL - 1 >= 1 << 24
-    # NOPS * 6 + 28 - 2 * 0 - 1 >= 16777216
-    # NOPS * 6 >= 16777189
-    # NOPS >= 2796198.2
-    nops = "NOP();" * 2796199
-    definition = f"@hax\ndef _():JUMP_ABSOLUTE(...);assert False;{nops}HAX_LABEL(...)"
+    # NOPS * 6 + 30 - 2 * 0 - 1 >= 16777216
+    # NOPS * 6 >= 16777187
+    # NOPS >= 2796197.8
+    nops = "NOP();" * ceil(2796197.8 * (2 if (3, 10) <= version_info else 1))
+    definition = (
+        f"@hax\ndef _():JUMP_ABSOLUTE(...);x=False;assert x;{nops}HAX_LABEL(...)"
+    )
     namespace: Dict[str, Any] = {"hax": hax.hax}
     exec(definition, namespace)  # pylint: disable = exec-used
     assert namespace["_"]() is None
@@ -532,11 +547,13 @@ def test_jump_absolute_longer() -> None:
 
 def test_jump_relative_longer() -> None:
     # NOPS * 6 + CODE_SIZE - 2 * IS_JREL - 1 >= 1 << 24
-    # NOPS * 6 + 28 - 2 * 1 - 1 >= 16777216
-    # NOPS * 6 >= 16777191
-    # NOPS >= 2796198.5
-    nops = "NOP();" * 2796199
-    definition = f"@hax\ndef _():JUMP_FORWARD(...);assert False;{nops}HAX_LABEL(...)"
+    # NOPS * 6 + 30 - 2 * 1 - 1 >= 16777216
+    # NOPS * 6 >= 16777189
+    # NOPS >= 2796198.2
+    nops = "NOP();" * ceil(2796198.2 * (2 if (3, 10) <= version_info else 1))
+    definition = (
+        f"@hax\ndef _():JUMP_FORWARD(...);x=False;assert x;{nops}HAX_LABEL(...)"
+    )
     namespace: Dict[str, Any] = {"hax": hax.hax}
     exec(definition, namespace)  # pylint: disable = exec-used
     assert namespace["_"]() is None
@@ -549,3 +566,10 @@ def test_ignored_nop() -> None:
         NOP()
 
     assert _() is None
+
+
+def test_removed_opcodes() -> None:
+    actual = {helper for helper in dir(_helpers) if helper[0] != "_"}
+    actual -= {"HAX_LABEL", "HaxUsageError", "LABEL"}
+    expected = set(opmap)
+    assert actual == expected

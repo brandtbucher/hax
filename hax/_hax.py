@@ -43,6 +43,12 @@ HASLOCAL = frozenset(haslocal)
 HASNAME = frozenset(hasname)
 
 
+if (3, 10) <= sys.version_info:  # pragma: no cover
+    OFFSET_SCALE = 2
+else:  # pragma: no cover
+    OFFSET_SCALE = 1
+
+
 class HaxCompileError(SyntaxError):
     pass
 
@@ -164,8 +170,8 @@ def _hax(bytecode: CodeType) -> CodeType:
         for op, line in ops:
 
             if op.is_jump_target:
-                deferred[op.offset] = len(code)
-                offset = len(code)
+                deferred[op.offset] = len(code) // OFFSET_SCALE
+                offset = len(code) // OFFSET_SCALE
                 for info in jumps.get(op.offset, ()):
                     info["arg"] = offset - info["arg"]
                     code[info["start"] : info["start"] + info["min_size"]] = backfill(
@@ -219,7 +225,7 @@ def _hax(bytecode: CodeType) -> CodeType:
                     info["arg"] = 0
                     jumps.setdefault(op.argval, []).append(info)
             elif op.opcode in HASJREL:
-                info["arg"] = len(code) + len(extended) + 2
+                info["arg"] = (len(code) + len(extended) + 2) // OFFSET_SCALE
                 jumps.setdefault(op.argval, []).append(info)
 
             assert op.opcode != EXTENDED_ARG
@@ -287,14 +293,14 @@ def _hax(bytecode: CodeType) -> CodeType:
                     f"Label {arg!r} already exists!",
                     (bytecode.co_filename, line, None, None),
                 )
-            offset = len(code)
+            offset = len(code) // OFFSET_SCALE
             labels[arg] = offset
             for info in deferred_labels.pop(arg, ()):
                 info["arg"] = offset - info["arg"]
                 code[info["start"] : info["start"] + info["min_size"]] = backfill(
                     **info
                 )
-                assert len(code) == offset, "Code changed size!"
+                assert len(code) == offset * OFFSET_SCALE, "Code changed size!"
             last_line = line
             continue
 
@@ -399,7 +405,11 @@ def _hax(bytecode: CodeType) -> CodeType:
                     padding = 2
                 else:
                     padding = 0
-                info["arg"] = (len(code) + padding + 2) if new_op in HASJREL else 0
+                info["arg"] = (
+                    ((len(code) + padding + 2) // OFFSET_SCALE)
+                    if new_op in HASJREL
+                    else 0
+                )
                 info["start"] = len(code)
                 info["min_size"] = padding + 2
                 deferred_labels.setdefault(arg, []).append(info)

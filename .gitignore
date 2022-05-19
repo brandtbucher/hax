@@ -1,5 +1,5 @@
 *.egg-info/
-.coverage
+.coverage*
 .hypothesis/
 .mypy_cache/
 .pytest_cache/
