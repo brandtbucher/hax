@@ -2,6 +2,7 @@
 black
 hypothesis
 mypy
+psutil
 pylint
 pytest
 pytest-cov
