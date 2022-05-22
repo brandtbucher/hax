@@ -9,7 +9,7 @@ with open("README.md", encoding="utf-8") as readme:
 
 setup(
     author="Brandt Bucher",
-    author_email="brandtbucher@gmail.com",
+    author_email="brandt@python.org",
     description="Write compiled bytecode inline with standard Python syntax.",
     keywords="bytecode",
     license="MIT",
