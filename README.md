@@ -3,7 +3,7 @@
 HAX
 ===
 
-[![latest version](https://img.shields.io/github/release-pre/brandtbucher/hax.svg?style=for-the-badge&label=latest)![latest release date](https://img.shields.io/github/release-date-pre/brandtbucher/hax.svg?style=for-the-badge&label=released)](https://github.com/brandtbucher/hax/releases)[![build status](https://img.shields.io/github/workflow/status/brandtbucher/hax/CI/master.svg?style=for-the-badge)](https://github.com/brandtbucher/hax/actions)[![issues](https://img.shields.io/github/issues-raw/brandtbucher/hax.svg?label=issues&style=for-the-badge)](https://github.com/brandtbucher/hax/issues)
+[![latest version](https://img.shields.io/github/release-pre/brandtbucher/hax.svg?style=for-the-badge&label=latest)![latest release date](https://img.shields.io/github/release-date-pre/brandtbucher/hax.svg?style=for-the-badge&label=released)](https://github.com/brandtbucher/hax/releases)[![build status](https://img.shields.io/github/actions/workflow/status/brandtbucher/hax/ci.yml.svg?style=for-the-badge&branch=master)](https://github.com/brandtbucher/hax/actions)[![issues](https://img.shields.io/github/issues-raw/brandtbucher/hax.svg?label=issues&style=for-the-badge)](https://github.com/brandtbucher/hax/issues)
 
 <br>
 
