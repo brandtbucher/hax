@@ -18,7 +18,7 @@ optimizer.
 Installation
 ------------
 
-HAX supports CPython 3.7+ on all platforms.
+HAX supports CPython 3.7-3.10 on all platforms.
 
 To install, just run:
 
